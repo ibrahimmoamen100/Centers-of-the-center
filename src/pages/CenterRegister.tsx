@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
+import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { Eye, EyeOff, Upload, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,17 @@ const grades = {
     { id: "sec2", label: "الصف الثاني الثانوي" },
     { id: "sec3", label: "الصف الثالث الثانوي" },
   ],
+};
+
+// Helper function to sanitize data and remove undefined values (Technical Note Requirement)
+const sanitizeData = (data: Record<string, any>) => {
+  const cleaned: Record<string, any> = {};
+  Object.keys(data).forEach((key) => {
+    const value = data[key];
+    // Convert undefined to null because Firestore does not support undefined
+    cleaned[key] = value === undefined ? null : value;
+  });
+  return cleaned;
 };
 
 export default function CenterRegister() {
@@ -97,42 +108,116 @@ export default function CenterRegister() {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // 1. Create Authentication User
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
+      console.log("Starting registration process (v2 - Sanitized)...");
+      // 1. Create Firebase Authentication User
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const uid = userCredential.user.uid;
+      console.log("Auth user created:", uid);
 
-      // 2. Store Center Data in Firestore
-      await setDoc(doc(db, "centers", user.uid), {
-        centerName: formData.centerName,
+      // Prepare stage display name
+      const stageLabels = formData.selectedStages
+        .map(stageId => stages.find(s => s.id === stageId)?.label || stageId)
+        .join(" - ");
+
+      // 2. Create Center Document in Firestore
+      const centerRef = doc(db, "centers", uid);
+
+      const centerData = {
+        // Display fields
+        name: formData.centerName,
+        logo: logoPreview ?? null,
+        location: formData.address,
+        stage: stageLabels || "غير محدد",
+        subjects: [],
+        rating: 0,
+        reviewCount: 0,
+        teacherCount: 0,
+
+        // Admin fields
+        id: uid,
         email: formData.email,
+        adminUid: uid,
         phone: formData.phone,
         address: formData.address,
         selectedStages: formData.selectedStages,
         selectedGrades: formData.selectedGrades,
-        createdAt: new Date().toISOString(),
-        role: "center", // Identify this user as a center
-        operationsUsed: 0,
-        operationsLimit: 10,
+
+        // Metadata
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: uid,
+
+        // Subscription
         subscription: {
-          status: "active", // Default valid for testing
+          status: "active",
           amount: 300,
           startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // +30 days
-        }
-      });
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        operationsUsed: 0,
+        operationsLimit: 10,
+      };
 
-      toast.success("تم إنشاء الحساب بنجاح");
-      navigate("/center/login");
+      // Sanitize data before sending to Firestore
+      await setDoc(centerRef, sanitizeData(centerData));
+      console.log("Center document created (Sanitized)");
+
+      // 3. Create User Document
+      const userData = {
+        uid,
+        email: formData.email,
+        role: "center_admin",
+        centerId: uid,
+        status: "pending",
+        displayName: formData.centerName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, "users", uid), sanitizeData(userData));
+      console.log("User document created with role");
+
+      toast.success("تم إنشاء الحساب بنجاح! في انتظار الموافقة من المسؤول");
+      navigate("/center/dashboard");
+
     } catch (error: any) {
       console.error("Registration error:", error);
+
+      // Rollback: Delete the auth user if Firestore creation fails
+      if (auth.currentUser) {
+        try {
+          console.log("Rolling back auth user due to error...");
+          await deleteUser(auth.currentUser);
+          console.log("Auth user rolled back successfully");
+        } catch (rollbackError) {
+          console.error("Failed to rollback auth user:", rollbackError);
+        }
+      }
+
       let errorMessage = "حدث خطأ أثناء إنشاء الحساب";
+
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "البريد الإلكتروني مستخدم بالفعل";
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = "كلمة المرور ضعيفة جدًا";
+        errorMessage = "كلمة المرور ضعيفة جدًا (يجب أن تكون 6 أحرف على الأقل)";
+      } else if (error.code === 'permission-denied') {
+        errorMessage = "لا تملك الصلاحيات اللازمة (يرجى التأكد من رفع قواعد الأمان).";
+      } else if (error.message && error.message.includes("undefined")) {
+        errorMessage = "حدث خطأ في البيانات (قيمة غير معرفة). تم إلغاء العملية.";
       }
+
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

@@ -1,82 +1,13 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon } from "lucide-react";
+import { Search as SearchIcon, Loader2 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SearchFilters from "@/components/search/SearchFilters";
 import CenterCard from "@/components/centers/CenterCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-// Mock data
-const mockCenters = [
-  {
-    id: "1",
-    name: "مركز النور التعليمي",
-    logo: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop",
-    location: "المعادي، القاهرة",
-    stage: "ثانوي",
-    subjects: ["رياضيات", "فيزياء", "كيمياء"],
-    rating: 4.8,
-    reviewCount: 124,
-    teacherCount: 15,
-  },
-  {
-    id: "2",
-    name: "أكاديمية التفوق",
-    logo: "https://images.unsplash.com/photo-1568792923760-d70635a89fdc?w=100&h=100&fit=crop",
-    location: "مدينة نصر، القاهرة",
-    stage: "إعدادي - ثانوي",
-    subjects: ["لغة عربية", "لغة إنجليزية", "علوم"],
-    rating: 4.6,
-    reviewCount: 89,
-    teacherCount: 12,
-  },
-  {
-    id: "3",
-    name: "مركز العلم والمعرفة",
-    logo: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=100&h=100&fit=crop",
-    location: "الهرم، الجيزة",
-    stage: "ابتدائي - إعدادي",
-    subjects: ["رياضيات", "لغة عربية", "دراسات"],
-    rating: 4.9,
-    reviewCount: 156,
-    teacherCount: 18,
-  },
-  {
-    id: "4",
-    name: "مركز الأمل التعليمي",
-    logo: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=100&h=100&fit=crop",
-    location: "الدقي، الجيزة",
-    stage: "ثانوي",
-    subjects: ["فيزياء", "أحياء", "كيمياء"],
-    rating: 4.7,
-    reviewCount: 98,
-    teacherCount: 10,
-  },
-  {
-    id: "5",
-    name: "أكاديمية المستقبل",
-    logo: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=100&h=100&fit=crop",
-    location: "حلوان، القاهرة",
-    stage: "إعدادي",
-    subjects: ["رياضيات", "علوم", "لغة إنجليزية"],
-    rating: 4.5,
-    reviewCount: 72,
-    teacherCount: 8,
-  },
-  {
-    id: "6",
-    name: "مركز العباقرة",
-    logo: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=100&h=100&fit=crop",
-    location: "المنيل، القاهرة",
-    stage: "ثانوي",
-    subjects: ["رياضيات", "فيزياء", "لغة عربية", "تاريخ"],
-    rating: 4.9,
-    reviewCount: 203,
-    teacherCount: 22,
-  },
-];
+import { useCenters } from "@/hooks/useCenters";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
@@ -89,10 +20,31 @@ const Search = () => {
     subjects: [] as string[],
   });
 
+  // Fetch centers with applied filters
+  const { centers, loading, error } = useCenters({
+    governorate: filters.governorate,
+    area: filters.area,
+    stage: filters.stage,
+    subjects: filters.subjects,
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Search logic would go here
+    // You could filter centers based on searchQuery
   };
+
+  // Filter centers based on search query
+  const filteredCenters = searchQuery
+    ? centers.filter(
+      (center) =>
+        center.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        center.subjects.some((subject) =>
+          subject.toLowerCase().includes(searchQuery.toLowerCase())
+        ) ||
+        center.location.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : centers;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -128,38 +80,70 @@ const Search = () => {
             <SearchFilters onFilterChange={setFilters} />
           </div>
 
-          {/* Results */}
-          <div className="mb-6 flex items-center justify-between">
-            <p className="text-muted-foreground">
-              تم العثور على <span className="font-bold text-foreground">{mockCenters.length}</span> مركز
-            </p>
-            <select className="bg-background border border-border rounded-lg px-4 py-2 text-sm">
-              <option>الأعلى تقييماً</option>
-              <option>الأقرب إليك</option>
-              <option>الأحدث</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockCenters.map((center, index) => (
-              <div key={center.id} className={`animate-slide-up stagger-${(index % 3) + 1}`}>
-                <CenterCard center={center} />
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination placeholder */}
-          <div className="mt-12 flex justify-center">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" disabled>
-                السابق
-              </Button>
-              <Button variant="default">1</Button>
-              <Button variant="outline">2</Button>
-              <Button variant="outline">3</Button>
-              <Button variant="outline">التالي</Button>
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="mr-3 text-muted-foreground">جاري البحث...</span>
             </div>
-          </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
+              <p className="text-destructive">حدث خطأ أثناء البحث: {error}</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!loading && !error && (
+            <>
+              <div className="mb-6 flex items-center justify-between">
+                <p className="text-muted-foreground">
+                  تم العثور على <span className="font-bold text-foreground">{filteredCenters.length}</span> مركز
+                </p>
+                <select className="bg-background border border-border rounded-lg px-4 py-2 text-sm">
+                  <option>الأعلى تقييماً</option>
+                  <option>الأقرب إليك</option>
+                  <option>الأحدث</option>
+                </select>
+              </div>
+
+              {/* Empty State */}
+              {filteredCenters.length === 0 && (
+                <div className="bg-muted/50 rounded-lg p-12 text-center">
+                  <p className="text-muted-foreground text-lg">لم يتم العثور على مراكز مطابقة لبحثك</p>
+                  <p className="text-muted-foreground mt-2">جرب تعديل معايير البحث أو الفلاتر</p>
+                </div>
+              )}
+
+              {/* Centers Grid */}
+              {filteredCenters.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCenters.map((center, index) => (
+                    <div key={center.id} className={`animate-slide-up stagger-${(index % 3) + 1}`}>
+                      <CenterCard center={center} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination placeholder - can be enhanced later */}
+              {filteredCenters.length > 0 && (
+                <div className="mt-12 flex justify-center">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" disabled>
+                      السابق
+                    </Button>
+                    <Button variant="default">1</Button>
+                    <Button variant="outline" disabled>
+                      التالي
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </main>
       <Footer />

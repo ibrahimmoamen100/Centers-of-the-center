@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Clock, AlertTriangle } from "lucide-react";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +49,7 @@ interface Session {
 interface SessionsManagementProps {
   canEdit: boolean;
   remainingOps: number;
+  centerId: string;
 }
 
 const days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
@@ -53,12 +57,30 @@ const subjects = ["الرياضيات", "الفيزياء", "الكيمياء", 
 const grades = ["الأول الإعدادي", "الثاني الإعدادي", "الثالث الإعدادي", "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"];
 const teachers = ["أ/ محمد أحمد", "أ/ علي حسن", "أ/ أحمد محمود"];
 
-export function SessionsManagement({ canEdit, remainingOps }: SessionsManagementProps) {
-  const [sessions, setSessions] = useState<Session[]>([
-    { id: "1", subject: "الرياضيات", teacher: "أ/ محمد أحمد", grade: "الثالث الثانوي", day: "السبت", startTime: "14:00", endTime: "16:00" },
-    { id: "2", subject: "الفيزياء", teacher: "أ/ علي حسن", grade: "الثالث الثانوي", day: "الأحد", startTime: "16:00", endTime: "18:00" },
-    { id: "3", subject: "الكيمياء", teacher: "أ/ أحمد محمود", grade: "الثاني الثانوي", day: "الاثنين", startTime: "14:00", endTime: "16:00" },
-  ]);
+export function SessionsManagement({ canEdit, remainingOps, centerId }: SessionsManagementProps) {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [centerId]);
+
+  const fetchSessions = async () => {
+    try {
+      const q = query(collection(db, "centers", centerId, "sessions"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Session));
+      setSessions(data);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      toast.error("فشل تحميل الحصص");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newSession, setNewSession] = useState({
@@ -70,20 +92,38 @@ export function SessionsManagement({ canEdit, remainingOps }: SessionsManagement
     endTime: "",
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!canEdit) return;
-    const session: Session = {
-      id: Date.now().toString(),
-      ...newSession,
-    };
-    setSessions([...sessions, session]);
-    setNewSession({ subject: "", teacher: "", grade: "", day: "", startTime: "", endTime: "" });
-    setIsAddOpen(false);
+    try {
+      const docRef = await addDoc(collection(db, "centers", centerId, "sessions"), {
+        ...newSession
+      });
+
+      const session: Session = {
+        id: docRef.id,
+        ...newSession
+      };
+
+      setSessions([...sessions, session]);
+      setNewSession({ subject: "", teacher: "", grade: "", day: "", startTime: "", endTime: "" });
+      setIsAddOpen(false);
+      toast.success("تم إضافة الحصة بنجاح");
+    } catch (error) {
+      console.error("Error adding session:", error);
+      toast.error("فشل إضافة الحصة");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!canEdit) return;
-    setSessions(sessions.filter(s => s.id !== id));
+    try {
+      await deleteDoc(doc(db, "centers", centerId, "sessions", id));
+      setSessions(sessions.filter(s => s.id !== id));
+      toast.success("تم حذف الحصة بنجاح");
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      toast.error("فشل حذف الحصة");
+    }
   };
 
   const getSubjectColor = (subject: string) => {
@@ -105,7 +145,7 @@ export function SessionsManagement({ canEdit, remainingOps }: SessionsManagement
           <h1 className="text-2xl font-bold">إدارة الحصص</h1>
           <p className="text-muted-foreground">إضافة وتعديل مواعيد الحصص</p>
         </div>
-        
+
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button disabled={!canEdit} className="gap-2">
@@ -229,7 +269,7 @@ export function SessionsManagement({ canEdit, remainingOps }: SessionsManagement
         {days.map((day) => {
           const daySessions = sessions.filter(s => s.day === day);
           if (daySessions.length === 0) return null;
-          
+
           return (
             <div key={day}>
               <h3 className="font-bold mb-3 text-lg">{day}</h3>

@@ -1,22 +1,19 @@
 import { Link } from "react-router-dom";
 import { MapPin, Star, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Center } from "@/hooks/useCenters";
 
 interface CenterCardProps {
-  center: {
-    id: string;
-    name: string;
-    logo: string;
-    location: string;
-    stage: string;
-    subjects: string[];
-    rating: number;
-    reviewCount: number;
-    teacherCount: number;
-  };
+  center: Center;
 }
 
 const CenterCard = ({ center }: CenterCardProps) => {
+  // Default values for optional fields
+  const logo = center.logo || "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop";
+  const rating = center.rating || 0;
+  const reviewCount = center.reviewCount || 0;
+  const teacherCount = center.teacherCount || 0;
+
   return (
     <Link
       to={`/center/${center.id}`}
@@ -28,7 +25,7 @@ const CenterCard = ({ center }: CenterCardProps) => {
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-xl overflow-hidden bg-muted flex-shrink-0">
               <img
-                src={center.logo}
+                src={logo}
                 alt={center.name}
                 className="h-full w-full object-cover"
               />
@@ -43,10 +40,12 @@ const CenterCard = ({ center }: CenterCardProps) => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-warning/10 px-2 py-1 rounded-lg">
-            <Star className="h-4 w-4 text-warning fill-warning" />
-            <span className="font-semibold text-sm text-warning-foreground">{center.rating}</span>
-          </div>
+          {rating > 0 && (
+            <div className="flex items-center gap-1 bg-warning/10 px-2 py-1 rounded-lg">
+              <Star className="h-4 w-4 text-warning fill-warning" />
+              <span className="font-semibold text-sm text-warning-foreground">{rating.toFixed(1)}</span>
+            </div>
+          )}
         </div>
 
         {/* Stage badge */}
@@ -77,10 +76,14 @@ const CenterCard = ({ center }: CenterCardProps) => {
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            <span>{center.teacherCount} مدرس</span>
+            <span>{teacherCount} مدرس</span>
           </div>
-          <span>•</span>
-          <span>{center.reviewCount} تقييم</span>
+          {reviewCount > 0 && (
+            <>
+              <span>•</span>
+              <span>{reviewCount} تقييم</span>
+            </>
+          )}
         </div>
         <span className="text-primary font-medium text-sm group-hover:translate-x-[-4px] transition-transform">
           عرض التفاصيل ←

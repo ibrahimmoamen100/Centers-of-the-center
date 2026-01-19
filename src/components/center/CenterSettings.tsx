@@ -15,10 +15,15 @@ import {
 } from "@/components/ui/select";
 import { governorates, areasByGovernorate, type Governorate } from "@/data/locations";
 import { subjectCategories } from "@/data/subjects";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface CenterSettingsProps {
   canEdit: boolean;
   remainingOps: number;
+  centerData: any;
 }
 
 const stages = [
@@ -39,24 +44,47 @@ const grades = {
   ],
 };
 
-export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
+export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSettingsProps) {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    centerName: "مركز النور التعليمي",
-    description: "مركز تعليمي متخصص في المرحلة الثانوية، يقدم أفضل المدرسين في جميع المواد",
-    phone: "01012345678",
-    whatsapp: "01012345678",
-    governorate: "القاهرة" as Governorate | "",
-    area: "مدينة نصر",
-    facebook: "https://facebook.com/alnoor",
+    centerName: "",
+    description: "",
+    phone: "",
+    whatsapp: "",
+    governorate: "" as Governorate | "",
+    area: "",
+    address: "",
+    facebook: "",
     instagram: "",
-    selectedStages: ["secondary"],
-    selectedGrades: ["sec1", "sec2", "sec3"],
-    selectedSubjects: ["physics", "chemistry", "arabic", "english"],
+    workingHours: "",
+    selectedStages: [] as string[],
+    selectedGrades: [] as string[],
+    selectedSubjects: [] as string[],
   });
 
-  const availableAreas = formData.governorate 
-    ? areasByGovernorate[formData.governorate as Governorate] 
+  useEffect(() => {
+    if (centerData) {
+      setFormData({
+        centerName: centerData.name || "",
+        description: centerData.description || "",
+        phone: centerData.phone || "",
+        whatsapp: centerData.whatsapp || "",
+        governorate: (centerData.governorate as Governorate) || "",
+        area: centerData.area || "",
+        address: centerData.address || "",
+        facebook: centerData.facebook || "",
+        instagram: centerData.instagram || "",
+        workingHours: centerData.workingHours || "",
+        selectedStages: centerData.stages || [],
+        selectedGrades: centerData.grades || [],
+        selectedSubjects: centerData.subjects || [],
+      });
+      if (centerData.logo) setLogoPreview(centerData.logo);
+    }
+  }, [centerData]);
+
+  const availableAreas = formData.governorate
+    ? areasByGovernorate[formData.governorate as Governorate]
     : [];
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,13 +151,37 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canEdit) return;
-    if (!formData.governorate) {
-      alert("يجب اختيار المحافظة");
+
+    // Validation
+    if (!formData.governorate || !formData.area || !formData.address || !formData.workingHours || formData.selectedStages.length === 0) {
+      toast.error("يرجى إكمال البيانات الأساسية (المحافظة، المنطقة، العنوان، مواعيد العمل، المراحل الدراسية)");
       return;
     }
-    console.log("Saving center data:", formData);
+
+    try {
+      await updateDoc(doc(db, "centers", centerData.id), {
+        name: formData.centerName,
+        description: formData.description,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
+        governorate: formData.governorate,
+        area: formData.area,
+        address: formData.address,
+        facebook: formData.facebook,
+        instagram: formData.instagram,
+        workingHours: formData.workingHours,
+        stages: formData.selectedStages,
+        grades: formData.selectedGrades,
+        subjects: formData.selectedSubjects,
+        // logo upload is handled separately usually, or base64 here if user wants, but assuming simple string update for now logic
+      });
+      toast.success("تم حفظ التغييرات بنجاح");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("فشل حفظ التغييرات");
+    }
   };
 
   return (
@@ -139,7 +191,7 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
           <h1 className="text-2xl font-bold">بيانات المركز</h1>
           <p className="text-muted-foreground">تعديل معلومات المركز التعليمي</p>
         </div>
-        
+
         <Button onClick={handleSave} disabled={!canEdit} className="gap-2">
           <Save className="h-4 w-4" />
           حفظ التغييرات
@@ -254,6 +306,16 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label>العنوان بالتفصيل</Label>
+              <Input
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                disabled={!canEdit}
+                placeholder="اسم الشارع، رقم العمارة، علامة مميزة..."
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -300,6 +362,16 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
                 placeholder="رابط حساب الانستغرام"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>مواعيد العمل <span className="text-destructive">*</span></Label>
+              <Input
+                value={formData.workingHours}
+                onChange={(e) => setFormData({ ...formData, workingHours: e.target.value })}
+                disabled={!canEdit}
+                placeholder="مثال: يومياً من 10 صباحاً حتى 10 مساءً"
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -323,7 +395,7 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
                       {stage.label}
                     </Label>
                   </div>
-                  
+
                   {formData.selectedStages.includes(stage.id) && (
                     <div className="mr-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {grades[stage.id as keyof typeof grades].map((grade) => (
@@ -364,13 +436,12 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                     {category.subjects.map((subject) => (
-                      <div 
-                        key={subject.id} 
-                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
-                          formData.selectedSubjects.includes(subject.id)
-                            ? "border-primary bg-primary/5"
-                            : "border-border"
-                        }`}
+                      <div
+                        key={subject.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${formData.selectedSubjects.includes(subject.id)
+                          ? "border-primary bg-primary/5"
+                          : "border-border"
+                          }`}
                       >
                         <Checkbox
                           id={subject.id}
@@ -387,7 +458,7 @@ export function CenterSettings({ canEdit, remainingOps }: CenterSettingsProps) {
                 </div>
               ))}
             </div>
-            
+
             {formData.selectedSubjects.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
                 <p className="text-sm text-muted-foreground">

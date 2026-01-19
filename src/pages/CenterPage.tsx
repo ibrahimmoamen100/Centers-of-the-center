@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { MapPin, Phone, Clock, Star, Users, Facebook, Instagram, MessageCircle, Share2 } from "lucide-react";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { MapPin, Phone, Clock, Star, Users, Facebook, Instagram, MessageCircle, Share2, Loader2, AlertCircle } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import TimetableCalendar from "@/components/centers/TimetableCalendar";
@@ -8,76 +11,162 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Mock data
-const centerData = {
-  id: "1",
-  name: "مركز النور التعليمي",
-  logo: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=200&h=200&fit=crop",
-  description: "مركز النور التعليمي هو أحد أبرز المراكز التعليمية في المعادي، يقدم خدمات تعليمية متميزة للمرحلتين الإعدادية والثانوية. نحن نفخر بفريق من المدرسين ذوي الخبرة العالية والمتخصصين في مجالاتهم.",
-  location: "المعادي، القاهرة",
-  address: "12 شارع الجزيرة، المعادي الجديدة",
-  phone: "+20 123 456 7890",
-  stages: ["إعدادي", "ثانوي"],
-  grades: ["الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"],
-  subjects: ["رياضيات", "فيزياء", "كيمياء", "أحياء", "لغة عربية", "لغة إنجليزية"],
-  rating: 4.8,
-  reviewCount: 124,
-  workingHours: "من 3:00 م إلى 10:00 م",
-  social: {
-    facebook: "https://facebook.com",
-    instagram: "https://instagram.com",
-    whatsapp: "+201234567890",
-  },
-};
+// Mock data is removed. Interfaces defined for type safety.
 
-const teachers = [
-  {
-    id: "1",
-    name: "أ/ محمد أحمد",
-    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    subjects: ["رياضيات", "هندسة"],
-    experience: "15 سنة خبرة",
-    rating: 4.9,
-  },
-  {
-    id: "2",
-    name: "أ/ سارة محمود",
-    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    subjects: ["فيزياء"],
-    experience: "10 سنوات خبرة",
-    rating: 4.8,
-  },
-  {
-    id: "3",
-    name: "أ/ أحمد علي",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    subjects: ["كيمياء", "أحياء"],
-    experience: "12 سنة خبرة",
-    rating: 4.7,
-  },
-  {
-    id: "4",
-    name: "أ/ فاطمة حسن",
-    photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    subjects: ["لغة عربية"],
-    experience: "8 سنوات خبرة",
-    rating: 4.9,
-  },
-];
+interface Teacher {
+  id: string;
+  name: string;
+  photo: string;
+  subjects: string[];
+  experience: string;
+  rating: number;
+}
 
-const sessions = [
-  { id: "1", subject: "رياضيات", teacher: "أ/ محمد أحمد", time: "15:00", duration: 90, day: 0, color: "math" },
-  { id: "2", subject: "فيزياء", teacher: "أ/ سارة محمود", time: "17:00", duration: 90, day: 0, color: "physics" },
-  { id: "3", subject: "كيمياء", teacher: "أ/ أحمد علي", time: "15:00", duration: 90, day: 1, color: "chemistry" },
-  { id: "4", subject: "لغة عربية", teacher: "أ/ فاطمة حسن", time: "17:30", duration: 60, day: 1, color: "arabic" },
-  { id: "5", subject: "رياضيات", teacher: "أ/ محمد أحمد", time: "16:00", duration: 90, day: 2, color: "math" },
-  { id: "6", subject: "أحياء", teacher: "أ/ أحمد علي", time: "18:30", duration: 90, day: 3, color: "biology" },
-  { id: "7", subject: "لغة إنجليزية", teacher: "أ/ منى السيد", time: "15:00", duration: 60, day: 4, color: "english" },
-  { id: "8", subject: "فيزياء", teacher: "أ/ سارة محمود", time: "17:00", duration: 90, day: 5, color: "physics" },
-];
+interface Session {
+  id: string;
+  subject: string;
+  teacher: string;
+  time: string;
+  duration: number;
+  day: number;
+  color: string;
+}
+
+interface CenterData {
+  id: string;
+  name: string;
+  logo?: string | null;
+  description?: string;
+  location: string;
+  address: string;
+  phone: string;
+  stages: string[]; // Array of strings e.g. ["preparatory", "secondary"]
+  grades: string[]; // Array of strings
+  subjects: string[];
+  rating: number;
+  reviewCount: number;
+  teacherCount: number;
+  workingHours?: string;
+  social?: {
+    facebook?: string;
+    instagram?: string;
+    whatsapp?: string;
+  };
+}
 
 const CenterPage = () => {
   const { id } = useParams();
+  const [centerData, setCenterData] = useState<CenterData | null>(null);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCenterData = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1. Fetch Center Document
+        const centerDoc = await getDoc(doc(db, "centers", id));
+
+        if (!centerDoc.exists()) {
+          setError("عذراً، هذا المركز غير موجود.");
+          setLoading(false);
+          return;
+        }
+
+        const data = centerDoc.data();
+
+        // Normalize stages: could be string "prep - sec" or array
+        let stagesList: string[] = [];
+        if (data.selectedStages && Array.isArray(data.selectedStages)) {
+          stagesList = data.selectedStages;
+        } else if (data.stage && typeof data.stage === 'string') {
+          stagesList = data.stage.split(' - ');
+        }
+
+        // Construct safe object
+        const center: CenterData = {
+          id: centerDoc.id,
+          name: data.name || "مركز غير مسمى",
+          logo: data.logo || null,
+          description: data.description || "لا يوجد وصف متاح لهذا المركز حالياً.",
+          location: data.location || data.address || "غير محدد",
+          address: data.address || "",
+          phone: data.phone || "",
+          stages: stagesList,
+          grades: data.selectedGrades || [],
+          subjects: data.subjects || [],
+          rating: data.rating || 0,
+          reviewCount: data.reviewCount || 0,
+          teacherCount: data.teacherCount || 0,
+          workingHours: data.workingHours || "غير محدد",
+          social: data.social || {},
+        };
+
+        setCenterData(center);
+
+        // 2. Fetch Teachers (Subcollection or separate query)
+        // Note: Currently 'teachers' collection might not exist, creating empty array safely.
+        try {
+          const teachersSnapshot = await getDocs(collection(db, "centers", id, "teachers"));
+          const teachersList = teachersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Teacher));
+          setTeachers(teachersList);
+        } catch (subError) {
+          console.log("No teachers collection found (safe ignore):", subError);
+          setTeachers([]);
+        }
+
+        // 3. Fetch Sessions
+        try {
+          const sessionsSnapshot = await getDocs(collection(db, "centers", id, "sessions"));
+          const sessionsList = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
+          setSessions(sessionsList);
+        } catch (subError) {
+          console.log("No sessions collection found (safe ignore):", subError);
+          setSessions([]);
+        }
+
+      } catch (err) {
+        console.error("Error fetching center:", err);
+        setError("حدث خطأ أثناء تحميل بيانات المركز.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCenterData();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">جاري تحميل بيانات المركز...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !centerData) {
+    return (
+      <div className="min-h-screen flex flex-col pt-10 items-center justify-center bg-background">
+        <Header />
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+          <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+          <h2 className="text-2xl font-bold mb-2">عذراً</h2>
+          <p className="text-muted-foreground mb-6">{error || "لم يتم العثور على المركز المطلوب"}</p>
+          <Button onClick={() => window.history.back()}>العودة للصفحة السابقة</Button>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -88,12 +177,16 @@ const CenterPage = () => {
           <div className="container">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               {/* Logo */}
-              <div className="h-28 w-28 rounded-2xl overflow-hidden bg-card shadow-xl flex-shrink-0">
-                <img
-                  src={centerData.logo}
-                  alt={centerData.name}
-                  className="h-full w-full object-cover"
-                />
+              <div className="h-28 w-28 rounded-2xl overflow-hidden bg-card shadow-xl flex-shrink-0 flex items-center justify-center">
+                {centerData.logo ? (
+                  <img
+                    src={centerData.logo}
+                    alt={centerData.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <MapPin className="h-10 w-10 text-muted-foreground opacity-50" />
+                )}
               </div>
 
               {/* Info */}
@@ -104,7 +197,7 @@ const CenterPage = () => {
                   </h1>
                   <div className="flex items-center gap-1 bg-primary-foreground/10 px-3 py-1 rounded-full backdrop-blur-sm">
                     <Star className="h-4 w-4 text-warning fill-warning" />
-                    <span className="font-semibold text-primary-foreground">{centerData.rating}</span>
+                    <span className="font-semibold text-primary-foreground">{centerData.rating.toFixed(1)}</span>
                     <span className="text-primary-foreground/70 text-sm">({centerData.reviewCount})</span>
                   </div>
                 </div>
@@ -167,15 +260,29 @@ const CenterPage = () => {
             </TabsList>
 
             <TabsContent value="timetable" className="mt-8">
-              <TimetableCalendar sessions={sessions} />
+              {sessions.length > 0 ? (
+                <TimetableCalendar sessions={sessions} />
+              ) : (
+                <div className="text-center py-12 text-muted-foreground border rounded-xl bg-muted/10">
+                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>لا يوجد جدول حصص متاح حالياً</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="teachers" className="mt-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {teachers.map((teacher) => (
-                  <TeacherCard key={teacher.id} teacher={teacher} />
-                ))}
-              </div>
+              {teachers.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {teachers.map((teacher) => (
+                    <TeacherCard key={teacher.id} teacher={teacher} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground border rounded-xl bg-muted/10">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>لا يوجد مدرسين مسجلين في هذا المركز حتى الآن</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="about" className="mt-8">
@@ -191,22 +298,30 @@ const CenterPage = () => {
                   <div className="bg-card rounded-2xl border border-border p-6">
                     <h3 className="text-xl font-bold text-foreground mb-4">المواد المتاحة</h3>
                     <div className="flex flex-wrap gap-2">
-                      {centerData.subjects.map((subject) => (
-                        <Badge key={subject} variant="secondary" className="text-sm px-4 py-2">
-                          {subject}
-                        </Badge>
-                      ))}
+                      {centerData.subjects.length > 0 ? (
+                        centerData.subjects.map((subject) => (
+                          <Badge key={subject} variant="secondary" className="text-sm px-4 py-2">
+                            {subject}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">لم يتم إضافة مواد بعد</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="bg-card rounded-2xl border border-border p-6">
                     <h3 className="text-xl font-bold text-foreground mb-4">الصفوف الدراسية</h3>
                     <div className="flex flex-wrap gap-2">
-                      {centerData.grades.map((grade) => (
-                        <Badge key={grade} variant="outline" className="text-sm px-4 py-2">
-                          {grade}
-                        </Badge>
-                      ))}
+                      {centerData.grades.length > 0 ? (
+                        centerData.grades.map((grade) => (
+                          <Badge key={grade} variant="outline" className="text-sm px-4 py-2">
+                            {grade}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">لم يتم تحديد صفوف دراسية</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -219,7 +334,7 @@ const CenterPage = () => {
                         <span className="text-muted-foreground">التقييم</span>
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-warning fill-warning" />
-                          <span className="font-bold">{centerData.rating}</span>
+                          <span className="font-bold">{centerData.rating.toFixed(1)}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
@@ -280,30 +395,42 @@ const CenterPage = () => {
                   <div className="pt-4 border-t border-border">
                     <p className="font-medium text-foreground mb-3">تابعنا على</p>
                     <div className="flex items-center gap-3">
-                      <a
-                        href={centerData.social.facebook}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
-                      >
-                        <Facebook className="h-5 w-5" />
-                      </a>
-                      <a
-                        href={centerData.social.instagram}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
-                      >
-                        <Instagram className="h-5 w-5" />
-                      </a>
-                      <a
-                        href={`https://wa.me/${centerData.social.whatsapp}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
-                      >
-                        <MessageCircle className="h-5 w-5" />
-                      </a>
+                      {!centerData.social?.facebook && !centerData.social?.instagram && !centerData.social?.whatsapp && (
+                        <p className="text-sm text-muted-foreground">لا توجد حسابات تواصل اجتماعي</p>
+                      )}
+
+                      {centerData.social?.facebook && (
+                        <a
+                          href={centerData.social.facebook}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <Facebook className="h-5 w-5" />
+                        </a>
+                      )}
+
+                      {centerData.social?.instagram && (
+                        <a
+                          href={centerData.social.instagram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <Instagram className="h-5 w-5" />
+                        </a>
+                      )}
+
+                      {centerData.social?.whatsapp && (
+                        <a
+                          href={`https://wa.me/${centerData.social.whatsapp}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 rounded-xl bg-muted hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <MessageCircle className="h-5 w-5" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

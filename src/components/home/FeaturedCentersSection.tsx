@@ -1,46 +1,13 @@
 import { Link } from "react-router-dom";
 import CenterCard from "@/components/centers/CenterCard";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-
-// Mock data for featured centers
-const featuredCenters = [
-  {
-    id: "1",
-    name: "مركز النور التعليمي",
-    logo: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop",
-    location: "المعادي، القاهرة",
-    stage: "ثانوي",
-    subjects: ["رياضيات", "فيزياء", "كيمياء"],
-    rating: 4.8,
-    reviewCount: 124,
-    teacherCount: 15,
-  },
-  {
-    id: "2",
-    name: "أكاديمية التفوق",
-    logo: "https://images.unsplash.com/photo-1568792923760-d70635a89fdc?w=100&h=100&fit=crop",
-    location: "مدينة نصر، القاهرة",
-    stage: "إعدادي - ثانوي",
-    subjects: ["لغة عربية", "لغة إنجليزية", "علوم"],
-    rating: 4.6,
-    reviewCount: 89,
-    teacherCount: 12,
-  },
-  {
-    id: "3",
-    name: "مركز العلم والمعرفة",
-    logo: "https://images.unsplash.com/photo-1577896851231-70ef18881754?w=100&h=100&fit=crop",
-    location: "الهرم، الجيزة",
-    stage: "ابتدائي - إعدادي",
-    subjects: ["رياضيات", "لغة عربية", "دراسات"],
-    rating: 4.9,
-    reviewCount: 156,
-    teacherCount: 18,
-  },
-];
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useCenters } from "@/hooks/useCenters";
 
 const FeaturedCentersSection = () => {
+  // Fetch only 3 featured centers
+  const { centers, loading } = useCenters({ limitCount: 3 });
+
   return (
     <section className="py-16 lg:py-24 bg-muted/30">
       <div className="container">
@@ -61,13 +28,35 @@ const FeaturedCentersSection = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredCenters.map((center, index) => (
-            <div key={center.id} className={`animate-slide-up stagger-${index + 1}`}>
-              <CenterCard center={center} />
-            </div>
-          ))}
-        </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="mr-3 text-muted-foreground">جاري تحميل المراكز...</span>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && centers.length === 0 && (
+          <div className="bg-muted/50 rounded-lg p-12 text-center">
+            <p className="text-muted-foreground text-lg">لا توجد مراكز متاحة حالياً</p>
+            <p className="text-muted-foreground mt-2">كن أول من يسجل مركزه</p>
+            <Button variant="hero" asChild className="mt-6">
+              <Link to="/center/register">سجل مركزك الآن</Link>
+            </Button>
+          </div>
+        )}
+
+        {/* Centers Grid */}
+        {!loading && centers.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {centers.map((center, index) => (
+              <div key={center.id} className={`animate-slide-up stagger-${index + 1}`}>
+                <CenterCard center={center} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

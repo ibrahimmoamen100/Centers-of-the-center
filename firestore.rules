@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    //Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && getUserRole() == 'super_admin';
+    }
+
+    // users
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSuperAdmin();
+      
+      // CRITICAL: Allow user to create their own profile
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSuperAdmin();
+    }
+    
+    // centers
+    match /centers/{centerId} {
+      allow read: if true;
+      
+      // CRITICAL: Allow user to create center with their own UID
+      allow create: if isSignedIn() && request.auth.uid == centerId;
+      
+      allow update: if isSignedIn() && request.auth.uid == centerId;
+      allow update: if isSuperAdmin();
+    }
+    
+    // invitations
+    match /invitations/{invitationId} {
+      allow read: if isSuperAdmin();
+      allow read: if isSignedIn() && resource.data.email == request.auth.token.email;
+      
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow update: if isSignedIn() && resource.data.email == request.auth.token.email;
+    }
+  }
+}

@@ -1,9 +1,13 @@
 import { Users, Clock, Calendar, Eye, TrendingUp, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { collection, getCountFromServer, query, where, getDocs, limit, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface CenterOverviewProps {
   centerData: {
+    id: string; // Added id
     name: string;
     operationsUsed: number;
     operationsLimit: number;
@@ -15,17 +19,38 @@ interface CenterOverviewProps {
 }
 
 export function CenterOverview({ centerData }: CenterOverviewProps) {
+  const [counts, setCounts] = useState({ teachers: 0, sessions: 0 });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const teachersColl = collection(db, "centers", centerData.id, "teachers");
+        const sessionsColl = collection(db, "centers", centerData.id, "sessions");
+
+        const teachersSnapshot = await getCountFromServer(teachersColl);
+        const sessionsSnapshot = await getCountFromServer(sessionsColl);
+
+        setCounts({
+          teachers: teachersSnapshot.data().count,
+          sessions: sessionsSnapshot.data().count
+        });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      }
+    };
+    fetchCounts();
+  }, [centerData.id]);
+
   const stats = [
-    { title: "المدرسين", value: 8, icon: Users, color: "text-blue-600" },
-    { title: "الحصص الأسبوعية", value: 24, icon: Clock, color: "text-green-600" },
-    { title: "الجداول النشطة", value: 6, icon: Calendar, color: "text-purple-600" },
-    { title: "الزيارات هذا الشهر", value: 156, icon: Eye, color: "text-accent" },
+    { title: "المدرسين", value: counts.teachers, icon: Users, color: "text-blue-600" },
+    { title: "الحصص المسجلة", value: counts.sessions, icon: Clock, color: "text-green-600" },
+    { title: "العمليات المستهلكة", value: centerData.operationsUsed, icon: Calendar, color: "text-purple-600" },
+    { title: "التقييم العام", value: 0, icon: Eye, color: "text-accent" }, // Placeholder for now
   ];
 
   const recentActivity = [
-    { action: "إضافة مدرس جديد", teacher: "أ/ محمد أحمد", time: "منذ ساعتين" },
-    { action: "تعديل جدول الحصص", teacher: "الرياضيات - الصف الثالث", time: "منذ 5 ساعات" },
-    { action: "إضافة حصة جديدة", teacher: "الفيزياء - أ/ علي حسن", time: "أمس" },
+    // Placeholder, ideally we have an 'activities' collection
+    { action: "تم تسجيل الدخول", teacher: "النظام", time: "الآن" },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -57,8 +82,8 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">
-                {remainingOperations === 0 
-                  ? "انتهت العمليات المتاحة" 
+                {remainingOperations === 0
+                  ? "انتهت العمليات المتاحة"
                   : `تبقى ${remainingOperations} عمليات فقط`}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -105,7 +130,7 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
               <span className="font-medium">{centerData.operationsUsed} / {centerData.operationsLimit}</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div 
+              <div
                 className={`h-full rounded-full ${remainingOperations <= 3 ? 'bg-destructive' : 'bg-primary'}`}
                 style={{ width: `${(centerData.operationsUsed / centerData.operationsLimit) * 100}%` }}
               />

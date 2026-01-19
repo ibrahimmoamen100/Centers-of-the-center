@@ -38,10 +38,10 @@ const Header = () => {
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/login">تسجيل الدخول</Link>
+            <Link to="/center/login">تسجيل الدخول</Link>
           </Button>
           <Button variant="hero" asChild>
-            <Link to="/register">سجل مركزك</Link>
+            <Link to="/center/register">سجل مركزك</Link>
           </Button>
         </div>
 
@@ -81,10 +81,10 @@ const Header = () => {
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
               <Button variant="outline" className="w-full" asChild>
-                <Link to="/login" onClick={() => setIsMenuOpen(false)}>تسجيل الدخول</Link>
+                <Link to="/center/login" onClick={() => setIsMenuOpen(false)}>تسجيل الدخول</Link>
               </Button>
               <Button variant="hero" className="w-full" asChild>
-                <Link to="/register" onClick={() => setIsMenuOpen(false)}>سجل مركزك</Link>
+                <Link to="/center/register" onClick={() => setIsMenuOpen(false)}>سجل مركزك</Link>
               </Button>
             </div>
           </nav>

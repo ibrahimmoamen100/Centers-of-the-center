@@ -1,9 +1,9 @@
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Clock, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  Clock,
+  Settings,
   CreditCard,
   LogOut,
   AlertTriangle
@@ -43,7 +43,7 @@ const menuItems = [
 
 export function CenterSidebar({ activeTab, setActiveTab, centerName, remainingOperations }: CenterSidebarProps) {
   return (
-    <Sidebar className="border-l">
+    <Sidebar side="right" className="border-l">
       <SidebarHeader className="p-4 border-b">
         <div className="flex items-center justify-between">
           <div>
@@ -64,7 +64,7 @@ export function CenterSidebar({ activeTab, setActiveTab, centerName, remainingOp
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div 
+                <div
                   className={`h-full rounded-full transition-all ${remainingOperations <= 3 ? 'bg-destructive' : 'bg-primary'}`}
                   style={{ width: `${(remainingOperations / 10) * 100}%` }}
                 />

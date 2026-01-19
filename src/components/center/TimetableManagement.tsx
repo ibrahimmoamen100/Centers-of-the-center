@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,23 +15,54 @@ import {
 interface TimetableManagementProps {
   canEdit: boolean;
   remainingOps: number;
+  centerId: string;
 }
 
 const days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
 const hours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
 
-const mockSessions = [
-  { id: 1, subject: "الرياضيات", teacher: "أ/ محمد", day: "السبت", start: "14:00", end: "16:00", grade: "3ث", color: "bg-blue-500" },
-  { id: 2, subject: "الفيزياء", teacher: "أ/ علي", day: "الأحد", start: "16:00", end: "18:00", grade: "3ث", color: "bg-purple-500" },
-  { id: 3, subject: "الكيمياء", teacher: "أ/ أحمد", day: "الاثنين", start: "14:00", end: "16:00", grade: "2ث", color: "bg-green-500" },
-  { id: 4, subject: "اللغة العربية", teacher: "أ/ حسن", day: "الثلاثاء", start: "10:00", end: "12:00", grade: "3ع", color: "bg-amber-500" },
-  { id: 5, subject: "اللغة الإنجليزية", teacher: "أ/ سارة", day: "الأربعاء", start: "16:00", end: "18:00", grade: "1ث", color: "bg-red-500" },
-];
+const getSubjectColor = (subject: string) => {
+  const colors: Record<string, string> = {
+    "الرياضيات": "bg-blue-500",
+    "الفيزياء": "bg-purple-500",
+    "الكيمياء": "bg-green-500",
+    "الأحياء": "bg-emerald-500",
+    "اللغة العربية": "bg-amber-500",
+    "اللغة الإنجليزية": "bg-red-500",
+  };
+  return colors[subject] || "bg-gray-500";
+};
 
-export function TimetableManagement({ canEdit, remainingOps }: TimetableManagementProps) {
+export function TimetableManagement({ canEdit, remainingOps, centerId }: TimetableManagementProps) {
   const [viewMode, setViewMode] = useState<"week" | "day">("week");
   const [selectedDay, setSelectedDay] = useState(days[0]);
   const [filterGrade, setFilterGrade] = useState("all");
+  const [sessions, setSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "centers", centerId, "sessions"));
+        const data = snapshot.docs.map(doc => {
+          const d = doc.data();
+          return {
+            id: doc.id,
+            subject: d.subject,
+            teacher: d.teacher,
+            day: d.day,
+            start: d.startTime,
+            end: d.endTime,
+            grade: d.grade,
+            color: getSubjectColor(d.subject)
+          };
+        });
+        setSessions(data);
+      } catch (error) {
+        console.error("Error fetching timetable:", error);
+      }
+    };
+    fetchSessions();
+  }, [centerId]);
 
   const getSessionPosition = (start: string, end: string) => {
     const startHour = parseInt(start.split(":")[0]);
@@ -39,9 +72,9 @@ export function TimetableManagement({ canEdit, remainingOps }: TimetableManageme
     return { top: startIndex * 60, height: duration * 60 };
   };
 
-  const filteredSessions = filterGrade === "all" 
-    ? mockSessions 
-    : mockSessions.filter(s => s.grade === filterGrade);
+  const filteredSessions = filterGrade === "all"
+    ? sessions
+    : sessions.filter(s => s.grade === filterGrade);
 
   return (
     <div className="space-y-6">
@@ -50,7 +83,7 @@ export function TimetableManagement({ canEdit, remainingOps }: TimetableManageme
           <h1 className="text-2xl font-bold">جدول الحصص</h1>
           <p className="text-muted-foreground">عرض وإدارة جدول الحصص الأسبوعي</p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Select value={filterGrade} onValueChange={setFilterGrade}>
             <SelectTrigger className="w-40">
@@ -64,18 +97,18 @@ export function TimetableManagement({ canEdit, remainingOps }: TimetableManageme
               <SelectItem value="3ث">الثالث الثانوي</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <div className="flex border rounded-lg overflow-hidden">
-            <Button 
-              variant={viewMode === "week" ? "default" : "ghost"} 
+            <Button
+              variant={viewMode === "week" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("week")}
               className="rounded-none"
             >
               أسبوعي
             </Button>
-            <Button 
-              variant={viewMode === "day" ? "default" : "ghost"} 
+            <Button
+              variant={viewMode === "day" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("day")}
               className="rounded-none"
@@ -99,8 +132,8 @@ export function TimetableManagement({ canEdit, remainingOps }: TimetableManageme
 
       {viewMode === "day" && (
         <div className="flex items-center justify-center gap-4 mb-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="icon"
             onClick={() => {
               const currentIndex = days.indexOf(selectedDay);
@@ -110,8 +143,8 @@ export function TimetableManagement({ canEdit, remainingOps }: TimetableManageme
             <ChevronRight className="h-4 w-4" />
           </Button>
           <span className="font-bold text-lg min-w-24 text-center">{selectedDay}</span>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="icon"
             onClick={() => {
               const currentIndex = days.indexOf(selectedDay);

@@ -30,10 +30,10 @@ const AdminDashboard = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background" dir="rtl">
         <AdminSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-        
-        <main className="flex-1 flex flex-col">
-          <header className="h-16 border-b bg-card flex items-center px-6 gap-4">
-            <SidebarTrigger className="lg:hidden" />
+
+        <main className="flex-1 flex flex-col transition-all duration-300 ease-in-out">
+          <header className="h-16 border-b bg-card flex items-center px-6 gap-4 sticky top-0 z-10">
+            <SidebarTrigger />
             <h1 className="text-xl font-bold text-foreground">
               {activeSection === "centers" && "إدارة المراكز"}
               {activeSection === "subscriptions" && "إدارة الاشتراكات"}
@@ -41,7 +41,7 @@ const AdminDashboard = () => {
               {activeSection === "payments" && "سجل المدفوعات"}
             </h1>
           </header>
-          
+
           <div className="flex-1 p-6 overflow-auto">
             {renderSection()}
           </div>
