@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, BadgeAlert, AlertTriangle } from "lucide-react";
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { Plus, Edit, Trash2, BadgeAlert, AlertTriangle, Upload, User } from "lucide-react";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, getDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -40,7 +41,8 @@ interface Teacher {
   id: string;
   name: string;
   subject: string;
-  image: string | null;
+  image?: string;
+  bio?: string;
   phone: string;
 }
 
@@ -50,20 +52,40 @@ interface TeachersManagementProps {
   centerId: string;
 }
 
-const subjects = [
-  "الرياضيات",
-  "الفيزياء",
-  "الكيمياء",
-  "الأحياء",
-  "اللغة العربية",
-  "اللغة الإنجليزية",
-  "التاريخ",
-  "الجغرافيا",
-];
-
 export function TeachersManagement({ canEdit, remainingOps, centerId }: TeachersManagementProps) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [centerSubjects, setCenterSubjects] = useState<string[]>([]);
+
+  // Dialog States
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+
+  // Form States
+  const [newTeacher, setNewTeacher] = useState({
+    name: "",
+    subject: "",
+    phone: "",
+    bio: "",
+    image: "",
+  });
+
+  // Fetch center data to get subjects
+  useEffect(() => {
+    const fetchCenterData = async () => {
+      try {
+        const centerDoc = await getDoc(doc(db, "centers", centerId));
+        if (centerDoc.exists()) {
+          const data = centerDoc.data();
+          setCenterSubjects(data.subjects || []);
+        }
+      } catch (error) {
+        console.error("Error fetching center data:", error);
+      }
+    };
+    fetchCenterData();
+  }, [centerId]);
 
   useEffect(() => {
     fetchTeachers();
@@ -86,13 +108,15 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
     }
   };
 
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
-  const [newTeacher, setNewTeacher] = useState({
-    name: "",
-    subject: "",
-    phone: "",
-  });
+  const updateOperations = async () => {
+    try {
+      await updateDoc(doc(db, "centers", centerId), {
+        operationsUsed: increment(1)
+      });
+    } catch (e) {
+      console.error("Failed to update operations count", e);
+    }
+  };
 
   const handleAdd = async () => {
     if (!canEdit) return;
@@ -101,20 +125,23 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
         name: newTeacher.name,
         subject: newTeacher.subject,
         phone: newTeacher.phone,
-        image: null
+        bio: newTeacher.bio || "",
+        image: newTeacher.image || ""
       });
 
       const teacher: Teacher = {
         id: docRef.id,
         name: newTeacher.name,
         subject: newTeacher.subject,
-        image: null,
         phone: newTeacher.phone,
+        bio: newTeacher.bio,
+        image: newTeacher.image
       };
 
       setTeachers([...teachers, teacher]);
-      setNewTeacher({ name: "", subject: "", phone: "" });
+      setNewTeacher({ name: "", subject: "", phone: "", bio: "", image: "" });
       setIsAddOpen(false);
+      updateOperations();
       toast.success("تم إضافة المدرس بنجاح");
     } catch (error) {
       console.error("Error adding teacher:", error);
@@ -129,11 +156,15 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
       await updateDoc(teacherRef, {
         name: editingTeacher.name,
         subject: editingTeacher.subject,
-        phone: editingTeacher.phone
+        phone: editingTeacher.phone,
+        bio: editingTeacher.bio || "",
+        image: editingTeacher.image || ""
       });
 
       setTeachers(teachers.map(t => t.id === editingTeacher.id ? editingTeacher : t));
+      setIsEditOpen(false);
       setEditingTeacher(null);
+      updateOperations();
       toast.success("تم تعديل البيانات بنجاح");
     } catch (error) {
       console.error("Error updating teacher:", error);
@@ -146,11 +177,17 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
     try {
       await deleteDoc(doc(db, "centers", centerId, "teachers", id));
       setTeachers(teachers.filter(t => t.id !== id));
+      updateOperations();
       toast.success("تم حذف المدرس بنجاح");
     } catch (error) {
       console.error("Error deleting teacher:", error);
       toast.error("فشل حذف المدرس");
     }
+  };
+
+  const openEditDialog = (teacher: Teacher) => {
+    setEditingTeacher(teacher);
+    setIsEditOpen(true);
   };
 
   return (
@@ -168,20 +205,51 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
               إضافة مدرس
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>إضافة مدرس جديد</DialogTitle>
               <DialogDescription>أدخل بيانات المدرس الجديد</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Image Input */}
               <div className="space-y-2">
-                <Label>اسم المدرس</Label>
-                <Input
-                  placeholder="أ/ محمد أحمد"
-                  value={newTeacher.name}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
-                />
+                <Label>صورة المدرس (رابط URL)</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border flex items-center justify-center overflow-hidden bg-muted flex-shrink-0">
+                    {newTeacher.image ? (
+                      <img src={newTeacher.image} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={newTeacher.image}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, image: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>اسم المدرس</Label>
+                  <Input
+                    placeholder="أ/ محمد أحمد"
+                    value={newTeacher.name}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>رقم الهاتف</Label>
+                  <Input
+                    placeholder="01xxxxxxxxx"
+                    value={newTeacher.phone}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>المادة</Label>
                 <Select
@@ -192,20 +260,26 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
                     <SelectValue placeholder="اختر المادة" />
                   </SelectTrigger>
                   <SelectContent>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject} value={subject}>
-                        {subject}
-                      </SelectItem>
-                    ))}
+                    {centerSubjects.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">لا توجد مواد مسجلة للمركز</div>
+                    ) : (
+                      centerSubjects.map((subject) => (
+                        <SelectItem key={subject} value={subject}>
+                          {subject}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
-                <Label>رقم الهاتف</Label>
-                <Input
-                  placeholder="01xxxxxxxxx"
-                  value={newTeacher.phone}
-                  onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
+                <Label>نبذة عن المدرس (اختياري)</Label>
+                <Textarea
+                  placeholder="نبذة مختصرة عن خبرات ومؤهلات المدرس..."
+                  value={newTeacher.bio}
+                  onChange={(e) => setNewTeacher({ ...newTeacher, bio: e.target.value })}
+                  rows={3}
                 />
               </div>
             </div>
@@ -234,8 +308,12 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
             <Card key={teacher.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
-                    {teacher.name.charAt(0)}
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold overflow-hidden">
+                    {teacher.image ? (
+                      <img src={teacher.image} alt={teacher.name} className="w-full h-full object-cover" />
+                    ) : (
+                      teacher.name.charAt(0)
+                    )}
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold">{teacher.name}</h3>
@@ -245,65 +323,16 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
                 </div>
 
                 <div className="flex gap-2 mt-4 pt-4 border-t">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 gap-1"
-                        disabled={!canEdit}
-                        onClick={() => setEditingTeacher(teacher)}
-                      >
-                        <Edit className="h-3 w-3" />
-                        تعديل
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>تعديل بيانات المدرس</DialogTitle>
-                      </DialogHeader>
-                      {editingTeacher && (
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>اسم المدرس</Label>
-                            <Input
-                              value={editingTeacher.name}
-                              onChange={(e) => setEditingTeacher({ ...editingTeacher, name: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>المادة</Label>
-                            <Select
-                              value={editingTeacher.subject}
-                              onValueChange={(value) => setEditingTeacher({ ...editingTeacher, subject: value })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {subjects.map((subject) => (
-                                  <SelectItem key={subject} value={subject}>
-                                    {subject}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>رقم الهاتف</Label>
-                            <Input
-                              value={editingTeacher.phone}
-                              onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditingTeacher(null)}>إلغاء</Button>
-                        <Button onClick={handleEdit}>حفظ التغييرات</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1"
+                    disabled={!canEdit}
+                    onClick={() => openEditDialog(teacher)}
+                  >
+                    <Edit className="h-3 w-3" />
+                    تعديل
+                  </Button>
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -340,6 +369,88 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
           ))}
         </div>
       )}
+
+      {/* Edit Dialog - Moved outside loop to fix stacking/modal issues */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات المدرس</DialogTitle>
+          </DialogHeader>
+          {editingTeacher && (
+            <div className="space-y-4 py-4">
+              {/* Image Input for Edit */}
+              <div className="space-y-2">
+                <Label>صورة المدرس (رابط URL)</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border flex items-center justify-center overflow-hidden bg-muted flex-shrink-0">
+                    {editingTeacher.image ? (
+                      <img src={editingTeacher.image} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={editingTeacher.image || ""}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, image: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>اسم المدرس</Label>
+                  <Input
+                    value={editingTeacher.name}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>رقم الهاتف</Label>
+                  <Input
+                    value={editingTeacher.phone}
+                    onChange={(e) => setEditingTeacher({ ...editingTeacher, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>المادة</Label>
+                <Select
+                  value={editingTeacher.subject}
+                  onValueChange={(value) => setEditingTeacher({ ...editingTeacher, subject: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centerSubjects.map((subject) => (
+                      <SelectItem key={subject} value={subject}>
+                        {subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>نبذة عن المدرس (اختياري)</Label>
+                <Textarea
+                  placeholder="نبذة مختصرة عن خبرات ومؤهلات المدرس..."
+                  value={editingTeacher.bio || ""}
+                  onChange={(e) => setEditingTeacher({ ...editingTeacher, bio: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>إلغاء</Button>
+            <Button onClick={handleEdit}>حفظ التغييرات</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

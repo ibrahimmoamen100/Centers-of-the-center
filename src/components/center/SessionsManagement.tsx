@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Clock, AlertTriangle } from "lucide-react";
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query } from "firebase/firestore";
+import { Plus, Edit, Trash2, Clock, AlertTriangle, CalendarDays, Repeat } from "lucide-react";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, getDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,15 +35,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { formatArabicTime, formatArabicDateTime } from "@/lib/dateUtils";
 
 interface Session {
   id: string;
   subject: string;
-  teacher: string;
+  teacherId: string;
+  teacherName: string;
   grade: string;
-  day: string;
-  startTime: string;
-  endTime: string;
+  type: 'recurring' | 'single';
+  day?: string; // For recurring (day name)
+  startDateTime: string; // ISO string
+  endDateTime?: string; // ISO string (for recurring end date, or single session end time)
+  sessionTime?: string; // Time string (e.g. "14:00") for recurring
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  subject: string;
 }
 
 interface SessionsManagementProps {
@@ -53,17 +63,43 @@ interface SessionsManagementProps {
 }
 
 const days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
-const subjects = ["الرياضيات", "الفيزياء", "الكيمياء", "الأحياء", "اللغة العربية", "اللغة الإنجليزية"];
-const grades = ["الأول الإعدادي", "الثاني الإعدادي", "الثالث الإعدادي", "الأول الثانوي", "الثاني الثانوي", "الثالث الثانوي"];
-const teachers = ["أ/ محمد أحمد", "أ/ علي حسن", "أ/ أحمد محمود"];
 
 export function SessionsManagement({ canEdit, remainingOps, centerId }: SessionsManagementProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [centerGrades, setCenterGrades] = useState<string[]>([]);
 
   useEffect(() => {
     fetchSessions();
+    fetchTeachers();
+    fetchCenterData();
   }, [centerId]);
+
+  const fetchTeachers = async () => {
+    try {
+      const q = query(collection(db, "centers", centerId, "teachers"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Teacher));
+      setTeachers(data);
+    } catch (error) {
+      console.error("Error fetching teachers:", error);
+    }
+  };
+
+  const fetchCenterData = async () => {
+    try {
+      const centerDoc = await getDoc(doc(db, "centers", centerId));
+      if (centerDoc.exists()) {
+        setCenterGrades(centerDoc.data().grades || []);
+      }
+    } catch (error) {
+      console.error("Error fetching center data:", error);
+    }
+  };
 
   const fetchSessions = async () => {
     try {
@@ -83,30 +119,64 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
   };
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newSession, setNewSession] = useState({
+  const [newSession, setNewSession] = useState<Omit<Session, "id">>({
     subject: "",
-    teacher: "",
+    teacherId: "",
+    teacherName: "",
     grade: "",
-    day: "",
-    startTime: "",
-    endTime: "",
+    type: "single",
+    startDateTime: "",
+    endDateTime: "",
+    sessionTime: "",
+    day: ""
   });
+
+  const updateOperations = async () => {
+    try {
+      await updateDoc(doc(db, "centers", centerId), {
+        operationsUsed: increment(1)
+      });
+    } catch (e) {
+      console.error("Failed to update operations count", e);
+    }
+  };
 
   const handleAdd = async () => {
     if (!canEdit) return;
     try {
-      const docRef = await addDoc(collection(db, "centers", centerId, "sessions"), {
-        ...newSession
-      });
+      // Ensure day is set for single sessions based on date
+      let sessionDay = newSession.day;
+      if (newSession.type === 'single' && newSession.startDateTime) {
+        const date = new Date(newSession.startDateTime);
+        sessionDay = date.toLocaleDateString('ar-EG', { weekday: 'long' });
+      }
+
+      const sessionData = {
+        ...newSession,
+        day: sessionDay
+      };
+
+      const docRef = await addDoc(collection(db, "centers", centerId, "sessions"), sessionData);
 
       const session: Session = {
         id: docRef.id,
-        ...newSession
+        ...sessionData
       };
 
       setSessions([...sessions, session]);
-      setNewSession({ subject: "", teacher: "", grade: "", day: "", startTime: "", endTime: "" });
+      setNewSession({
+        subject: "",
+        teacherId: "",
+        teacherName: "",
+        grade: "",
+        type: "single",
+        startDateTime: "",
+        endDateTime: "",
+        sessionTime: "",
+        day: ""
+      });
       setIsAddOpen(false);
+      updateOperations();
       toast.success("تم إضافة الحصة بنجاح");
     } catch (error) {
       console.error("Error adding session:", error);
@@ -119,6 +189,7 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
     try {
       await deleteDoc(doc(db, "centers", centerId, "sessions", id));
       setSessions(sessions.filter(s => s.id !== id));
+      updateOperations();
       toast.success("تم حذف الحصة بنجاح");
     } catch (error) {
       console.error("Error deleting session:", error);
@@ -159,41 +230,63 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
               <DialogDescription>أدخل بيانات الحصة الجديدة</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>المادة</Label>
-                  <Select
-                    value={newSession.subject}
-                    onValueChange={(value) => setNewSession({ ...newSession, subject: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر المادة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.map((subject) => (
-                        <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>المدرس</Label>
-                  <Select
-                    value={newSession.teacher}
-                    onValueChange={(value) => setNewSession({ ...newSession, teacher: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر المدرس" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teachers.map((teacher) => (
-                        <SelectItem key={teacher} value={teacher}>{teacher}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Teacher Selection */}
+              <div className="space-y-2">
+                <Label>المدرس (سيتم تحديد المادة تلقائياً)</Label>
+                <Select
+                  value={newSession.teacherId}
+                  onValueChange={(teacherId) => {
+                    const selectedTeacher = teachers.find(t => t.id === teacherId);
+                    setNewSession({
+                      ...newSession,
+                      teacherId,
+                      teacherName: selectedTeacher?.name || '',
+                      subject: selectedTeacher?.subject || ''
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المدرس" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">لا يوجد مدرسين مسجلين</div>
+                    ) : (
+                      teachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name} - {teacher.subject}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Display Subject (Read-only) */}
+              {newSession.subject && (
+                <div className="p-2 bg-muted rounded-md flex items-center gap-2">
+                  <span className="text-sm font-medium">المادة المختارة:</span>
+                  <Badge variant="secondary">{newSession.subject}</Badge>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>نوع الحصة</Label>
+                  <Select
+                    value={newSession.type}
+                    onValueChange={(value: 'recurring' | 'single') => setNewSession({ ...newSession, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">حصة فردية (مرة واحدة)</SelectItem>
+                      <SelectItem value="recurring">حصة مستمرة (أسبوعية)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label>الصف</Label>
                   <Select
@@ -204,47 +297,87 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
                       <SelectValue placeholder="اختر الصف" />
                     </SelectTrigger>
                     <SelectContent>
-                      {grades.map((grade) => (
-                        <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>اليوم</Label>
-                  <Select
-                    value={newSession.day}
-                    onValueChange={(value) => setNewSession({ ...newSession, day: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر اليوم" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {days.map((day) => (
-                        <SelectItem key={day} value={day}>{day}</SelectItem>
-                      ))}
+                      {centerGrades.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">لا توجد صفوف مسجلة</div>
+                      ) : (
+                        centerGrades.map((grade) => (
+                          <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>وقت البداية</Label>
-                  <Input
-                    type="time"
-                    value={newSession.startTime}
-                    onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
-                  />
+
+              {/* Conditional Fields based on Type */}
+              {newSession.type === 'single' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>تاريخ ووقت البداية</Label>
+                    <Input
+                      type="datetime-local"
+                      value={newSession.startDateTime}
+                      onChange={(e) => setNewSession({ ...newSession, startDateTime: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>تاريخ ووقت النهاية (اختياري)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={newSession.endDateTime || ''}
+                      onChange={(e) => setNewSession({ ...newSession, endDateTime: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>وقت النهاية</Label>
-                  <Input
-                    type="time"
-                    value={newSession.endTime}
-                    onChange={(e) => setNewSession({ ...newSession, endTime: e.target.value })}
-                  />
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>تاريخ البداية (أول حصة)</Label>
+                      <Input
+                        type="date"
+                        value={newSession.startDateTime ? newSession.startDateTime.split('T')[0] : ''}
+                        onChange={(e) => setNewSession({ ...newSession, startDateTime: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>تاريخ النهاية (اختياري)</Label>
+                      <Input
+                        type="date"
+                        value={newSession.endDateTime ? newSession.endDateTime.split('T')[0] : ''}
+                        onChange={(e) => setNewSession({ ...newSession, endDateTime: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>يوم التكرار</Label>
+                      <Select
+                        value={newSession.day}
+                        onValueChange={(value) => setNewSession({ ...newSession, day: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر اليوم" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {days.map((day) => (
+                            <SelectItem key={day} value={day}>{day}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>وقت الحصة</Label>
+                      <Input
+                        type="time"
+                        value={newSession.sessionTime || ''}
+                        onChange={(e) => setNewSession({ ...newSession, sessionTime: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddOpen(false)}>إلغاء</Button>
@@ -275,16 +408,17 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
               <h3 className="font-bold mb-3 text-lg">{day}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {daySessions.map((session) => (
-                  <Card key={session.id}>
+                  <Card key={session.id} className="relative overflow-hidden">
+                    {/* Type Indicator Strip */}
+                    <div className={`absolute top-0 right-0 w-1 h-full ${session.type === 'recurring' ? 'bg-blue-500' : 'bg-purple-500'}`} />
+
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <Badge className={getSubjectColor(session.subject)}>
                           {session.subject}
                         </Badge>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canEdit}>
-                            <Edit className="h-3 w-3" />
-                          </Button>
+                          {/* Actions... (Edit not fully implmented for new structure yet, just UI) */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" disabled={!canEdit}>
@@ -311,11 +445,26 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
                           </AlertDialog>
                         </div>
                       </div>
-                      <p className="font-medium">{session.teacher}</p>
-                      <p className="text-sm text-muted-foreground">{session.grade}</p>
-                      <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
+
+                      <p className="font-bold text-lg mb-1">{session.teacherName}</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="text-xs">
+                          {session.grade}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          {session.type === 'recurring' ? <Repeat className="h-3 w-3" /> : <CalendarDays className="h-3 w-3" />}
+                          {session.type === 'recurring' ? 'أسبوعية' : 'فردية'}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground bg-muted p-2 rounded-md">
                         <Clock className="h-3 w-3" />
-                        <span>{session.startTime} - {session.endTime}</span>
+                        <span>
+                          {session.type === 'recurring'
+                            ? `${formatArabicTime(session.sessionTime ? `2000-01-01T${session.sessionTime}` : undefined)}` // format time string
+                            : formatArabicDateTime(session.startDateTime)
+                          }
+                        </span>
                       </div>
                     </CardContent>
                   </Card>

@@ -21,14 +21,12 @@ interface AdminSidebarProps {
 
 const menuItems = [
   { id: "centers" as AdminSection, title: "إدارة المراكز", icon: Building2 },
-  { id: "subscriptions" as AdminSection, title: "الاشتراكات", icon: CreditCard },
   { id: "reports" as AdminSection, title: "التقارير", icon: BarChart3 },
-  { id: "payments" as AdminSection, title: "سجل المدفوعات", icon: Receipt },
 ];
 
 export function AdminSidebar({ activeSection, onSectionChange }: AdminSidebarProps) {
   return (
-    <Sidebar className="border-l border-r-0" collapsible="icon">
+    <Sidebar className="border-r border-l-0" collapsible="icon" side="right">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">

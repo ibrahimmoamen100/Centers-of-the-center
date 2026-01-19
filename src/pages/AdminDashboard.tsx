@@ -2,11 +2,9 @@ import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { CentersManagement } from "@/components/admin/CentersManagement";
-import { SubscriptionsManagement } from "@/components/admin/SubscriptionsManagement";
 import { ReportsSection } from "@/components/admin/ReportsSection";
-import { PaymentLogs } from "@/components/admin/PaymentLogs";
 
-export type AdminSection = "centers" | "subscriptions" | "reports" | "payments";
+export type AdminSection = "centers" | "reports";
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState<AdminSection>("centers");
@@ -15,12 +13,8 @@ const AdminDashboard = () => {
     switch (activeSection) {
       case "centers":
         return <CentersManagement />;
-      case "subscriptions":
-        return <SubscriptionsManagement />;
       case "reports":
         return <ReportsSection />;
-      case "payments":
-        return <PaymentLogs />;
       default:
         return <CentersManagement />;
     }
@@ -36,9 +30,7 @@ const AdminDashboard = () => {
             <SidebarTrigger />
             <h1 className="text-xl font-bold text-foreground">
               {activeSection === "centers" && "إدارة المراكز"}
-              {activeSection === "subscriptions" && "إدارة الاشتراكات"}
               {activeSection === "reports" && "التقارير والإحصائيات"}
-              {activeSection === "payments" && "سجل المدفوعات"}
             </h1>
           </header>
 

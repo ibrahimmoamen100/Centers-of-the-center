@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, MoreVertical, Eye, Edit, Archive, Trash2, RotateCcw, CheckCircle, Sliders, CreditCard, MapPin } from "lucide-react";
+import { Search, Plus, MoreVertical, Eye, Edit, Archive, Trash2, RotateCcw, CheckCircle, Sliders, CreditCard, MapPin, Receipt, Calendar, Building2, Users, Clock, DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,13 +35,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 
 // Interface matching Firestore Schema
+interface Payment {
+  id?: string;
+  centerId: string;
+  centerName: string;
+  amount: number;
+  paymentType: string;
+  date: string;
+  notes?: string;
+  subscriptionMonths: number;
+}
+
 interface Center {
   id: string;
   name: string;
@@ -67,7 +80,105 @@ interface Center {
   operationsUsed: number;
   operationsLimit: number;
   teacherCount?: number;
+  paymentHistory?: Payment[];
 }
+
+// Payment History Table Component
+function PaymentHistoryTable({ centerId }: { centerId: string }) {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!centerId) return;
+
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const q = query(
+          collection(db, "payments"),
+          orderBy("date", "desc")
+        );
+        const querySnapshot = await getDocs(q);
+        const allPayments = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Payment));
+
+        // Filter payments for this center
+        const centerPayments = allPayments.filter(p => p.centerId === centerId);
+        setPayments(centerPayments);
+      } catch (error) {
+        console.error("Error fetching payments:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, [centerId]);
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('ar-EG', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-muted-foreground">جاري التحميل...</div>;
+  }
+
+  if (payments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Receipt className="h-12 w-12 mx-auto mb-3 opacity-30" />
+        <p>لا توجد سجلات مدفوعات لهذا المركز</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {payments.map((payment) => (
+        <Card key={payment.id} className="border-l-4 border-l-green-500">
+          <CardContent className="pt-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-green-600" />
+                  <span className="font-bold text-lg">{payment.amount} ج.م</span>
+                </div>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-3 w-3" />
+                  {formatDate(payment.date)}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="outline">{payment.paymentType}</Badge>
+                  <Badge variant="secondary">{payment.subscriptionMonths} شهر</Badge>
+                </div>
+                {payment.notes && (
+                  <p className="text-sm text-muted-foreground mt-2 italic">
+                    "{payment.notes}"
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      <div className="pt-4 border-t">
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">إجمالي المدفوعات:</span>
+          <span className="font-bold text-lg text-green-600">
+            {payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()} ج.م
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export function CentersManagement() {
   const [centers, setCenters] = useState<Center[]>([]);
@@ -80,12 +191,16 @@ export function CentersManagement() {
   const [isRenewDialogOpen, setIsRenewDialogOpen] = useState(false);
   const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   // Renew / Approve Form State
-  const [renewForm, setRenewForm] = useState({ durationMonths: 1, amount: 300, paymentType: "cash" });
+  const [renewForm, setRenewForm] = useState({ durationMonths: 1, amount: 300, paymentType: "cash", notes: "" });
 
   // Limit Form State
   const [limitForm, setLimitForm] = useState({ newLimit: 10, extraCost: 0 });
+
+  // Payment Form State
+  const [paymentForm, setPaymentForm] = useState({ amount: 300, paymentType: "cash", notes: "", subscriptionMonths: 1 });
 
   // Fetch Centers
   const fetchCenters = async () => {
@@ -233,6 +348,33 @@ export function CentersManagement() {
       toast.success("تم استعادة المركز");
       fetchCenters();
     } catch (e) { toast.error("فشل الاستعادة"); }
+  };
+
+  const handleRecordPayment = async () => {
+    if (!selectedCenter) return;
+
+    try {
+      const payment: Payment = {
+        centerId: selectedCenter.id,
+        centerName: selectedCenter.name,
+        amount: paymentForm.amount,
+        paymentType: paymentForm.paymentType,
+        date: new Date().toISOString(),
+        notes: paymentForm.notes,
+        subscriptionMonths: paymentForm.subscriptionMonths
+      };
+
+      // Add to payments collection
+      await addDoc(collection(db, "payments"), payment);
+
+      toast.success("تم تسجيل الدفعة بنجاح");
+      setIsPaymentDialogOpen(false);
+      setPaymentForm({ amount: 300, paymentType: "cash", notes: "", subscriptionMonths: 1 });
+      fetchCenters();
+    } catch (error) {
+      console.error(error);
+      toast.error("فشل تسجيل الدفعة");
+    }
   };
 
 
@@ -384,6 +526,15 @@ export function CentersManagement() {
                               إدارة حد التعديلات
                             </DropdownMenuItem>
 
+                            <DropdownMenuItem className="gap-2" onClick={() => {
+                              setSelectedCenter(center);
+                              setPaymentForm({ ...paymentForm, amount: center.subscription?.amount || 300 });
+                              setIsPaymentDialogOpen(true);
+                            }}>
+                              <Receipt className="h-4 w-4" />
+                              تسجيل دفعة جديدة
+                            </DropdownMenuItem>
+
                             <DropdownMenuSeparator />
 
                             {center.status === "archived" ? (
@@ -422,85 +573,271 @@ export function CentersManagement() {
           </TabsContent>
         </Tabs>
 
-        {/* Details Dialog */}
+        {/* Details Dialog - Enhanced with Tabs */}
         <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-5xl max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle>تفاصيل المركز</DialogTitle>
-              <DialogDescription>عرض جميع بيانات المركز المسجلة.</DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[80vh]">
-              {selectedCenter && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                  {/* Basic Info */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-lg bg-muted border flex items-center justify-center overflow-hidden">
-                        {selectedCenter.logo ? (
-                          <img src={selectedCenter.logo} alt="Logo" className="w-full h-full object-cover" />
-                        ) : <Eye className="w-8 h-8 text-muted-foreground" />}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold">{selectedCenter.name}</h3>
-                        <Badge variant="outline" className="mt-1">{selectedCenter.status}</Badge>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      <div className="flex gap-2"><span className="font-semibold w-24">المحافظة:</span> <span>{selectedCenter.governorate || '-'}</span></div>
-                      <div className="flex gap-2"><span className="font-semibold w-24">المنطقة:</span> <span>{selectedCenter.area || '-'}</span></div>
-                      <div className="flex gap-2"><span className="font-semibold w-24">العنوان:</span> <span>{selectedCenter.address || '-'}</span></div>
-                      <div className="flex gap-2"><span className="font-semibold w-24">الهاتف:</span> <span>{selectedCenter.phone || '-'}</span></div>
-                      <div className="flex gap-2"><span className="font-semibold w-24">مواعيد العمل:</span> <span>{selectedCenter.workingHours || '-'}</span></div>
-                    </div>
-                  </div>
-
-                  {/* Academic Info */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold border-b pb-2">البيانات الأكاديمية</h4>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="font-semibold block mb-1">المراحل الدراسية:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedCenter.stages?.map(s => <Badge key={s} variant="secondary">{s}</Badge>) || <span className="text-muted-foreground">-</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="font-semibold block mb-1">الصفوف الدراسية:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedCenter.grades?.map(g => <Badge key={g} variant="outline">{g}</Badge>) || <span className="text-muted-foreground">-</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subscription Info */}
-                  <div className="md:col-span-2 bg-muted/40 p-4 rounded-lg">
-                    <h4 className="font-bold mb-3 flex items-center gap-2"><CreditCard className="w-4 h-4" /> تفاصيل الاشتراك</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground block text-xs">حالة الاشتراك</span>
-                        <span className="font-medium">{selectedCenter.subscription?.status || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-xs">يبدأ في</span>
-                        <span className="font-medium">{formatDate(selectedCenter.subscription?.startDate)}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-xs">ينتهي في</span>
-                        <span className="font-medium">{formatDate(selectedCenter.subscription?.endDate)}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-xs">الاستهلاك</span>
-                        <span className="font-medium">{selectedCenter.operationsUsed} / {selectedCenter.operationsLimit}</span>
-                      </div>
-                    </div>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-lg bg-muted border flex items-center justify-center overflow-hidden">
+                  {selectedCenter?.logo ? (
+                    <img src={selectedCenter.logo} alt="Logo" className="w-full h-full object-cover" />
+                  ) : <Building2 className="w-8 h-8 text-muted-foreground" />}
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-2xl">{selectedCenter?.name}</DialogTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    {selectedCenter && getStatusBadge(selectedCenter.status)}
+                    <span className="text-sm text-muted-foreground">•</span>
+                    <span className="text-sm text-muted-foreground">{selectedCenter?.phone}</span>
                   </div>
                 </div>
-              )}
-            </ScrollArea>
+              </div>
+            </DialogHeader>
+
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="general" className="gap-2">
+                  <Building2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">معلومات عامة</span>
+                </TabsTrigger>
+                <TabsTrigger value="subscription" className="gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  <span className="hidden sm:inline">الاشتراك</span>
+                </TabsTrigger>
+                <TabsTrigger value="payments" className="gap-2">
+                  <Receipt className="h-4 w-4" />
+                  <span className="hidden sm:inline">المدفوعات</span>
+                </TabsTrigger>
+                <TabsTrigger value="edits" className="gap-2">
+                  <Sliders className="h-4 w-4" />
+                  <span className="hidden sm:inline">التعديلات</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <ScrollArea className="h-[500px] mt-4">
+                {/* General Info Tab */}
+                <TabsContent value="general" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        معلومات الموقع
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-muted-foreground">المحافظة</Label>
+                        <p className="font-medium mt-1">{selectedCenter?.governorate || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">المنطقة</Label>
+                        <p className="font-medium mt-1">{selectedCenter?.area || '-'}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-muted-foreground">العنوان التفصيلي</Label>
+                        <p className="font-medium mt-1">{selectedCenter?.address || '-'}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-muted-foreground">مواعيد العمل</Label>
+                        <p className="font-medium mt-1">{selectedCenter?.workingHours || '-'}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        البيانات الأكاديمية
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label className="text-muted-foreground mb-2 block">المراحل الدراسية</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCenter?.stages?.map(s => (
+                            <Badge key={s} variant="secondary">{s}</Badge>
+                          )) || <span className="text-sm text-muted-foreground">لا توجد مراحل محددة</span>}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground mb-2 block">الصفوف الدراسية</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCenter?.grades?.map(g => (
+                            <Badge key={g} variant="outline">{g}</Badge>
+                          )) || <span className="text-sm text-muted-foreground">لا توجد صفوف محددة</span>}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Subscription Tab */}
+                <TabsContent value="subscription" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 justify-between">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-5 w-5" />
+                          تفاصيل الاشتراك
+                        </div>
+                        <Button size="sm" onClick={() => {
+                          setRenewForm({ ...renewForm, amount: selectedCenter?.subscription?.amount || 300 });
+                          setIsRenewDialogOpen(true);
+                        }}>
+                          تجديد الآن
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                        <div>
+                          <Label className="text-muted-foreground text-xs">حالة الاشتراك</Label>
+                          <div className="mt-2">
+                            {selectedCenter && getStatusBadge(selectedCenter.subscription?.status || "pending")}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">تاريخ البداية</Label>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{formatDate(selectedCenter?.subscription?.startDate)}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">تاريخ الانتهاء</Label>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{formatDate(selectedCenter?.subscription?.endDate)}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">قيمة الاشتراك</Label>
+                          <div className="mt-2 flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium text-lg">{selectedCenter?.subscription?.amount || 0} ج.م</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground text-xs">طريقة الدفع</Label>
+                          <p className="font-medium mt-2">{selectedCenter?.subscription?.paymentType || '-'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-amber-600 mt-0.5" />
+                        <div className="flex-1">
+                          <Label className="text-amber-900 font-semibold">المدة المتبقية</Label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {selectedCenter?.subscription?.endDate ? (
+                              `ينتهي الاشتراك في ${formatDate(selectedCenter.subscription.endDate)}`
+                            ) : 'لم يتم تفعيل الاشتراك بعد'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Payments Tab */}
+                <TabsContent value="payments" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Receipt className="h-5 w-5" />
+                          سجل المدفوعات
+                        </CardTitle>
+                        <Button size="sm" onClick={() => {
+                          setPaymentForm({ ...paymentForm, amount: selectedCenter?.subscription?.amount || 300 });
+                          setIsPaymentDialogOpen(true);
+                        }}>
+                          <Receipt className="h-4 w-4 mr-2" />
+                          تسجيل دفعة جديدة
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <PaymentHistoryTable centerId={selectedCenter?.id || ""} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Edits Tab */}
+                <TabsContent value="edits" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Sliders className="h-5 w-5" />
+                          حد التعديلات الشهري
+                        </CardTitle>
+                        <Button size="sm" onClick={() => {
+                          setLimitForm({ newLimit: selectedCenter?.operationsLimit || 10, extraCost: 0 });
+                          setIsLimitDialogOpen(true);
+                        }}>
+                          تعديل الحد
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="border-2">
+                          <CardContent className="pt-6 text-center">
+                            <div className="text-3xl font-bold text-primary">{selectedCenter?.operationsLimit || 10}</div>
+                            <Label className="text-muted-foreground text-xs">الحد المسموح</Label>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-2">
+                          <CardContent className="pt-6 text-center">
+                            <div className="text-3xl font-bold text-amber-600">{selectedCenter?.operationsUsed || 0}</div>
+                            <Label className="text-muted-foreground text-xs">المستخدم</Label>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-2">
+                          <CardContent className="pt-6 text-center">
+                            <div className="text-3xl font-bold text-green-600">
+                              {(selectedCenter?.operationsLimit || 10) - (selectedCenter?.operationsUsed || 0)}
+                            </div>
+                            <Label className="text-muted-foreground text-xs">المتبقي</Label>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <div>
+                        <Label className="mb-2 block">نسبة الاستهلاك</Label>
+                        <Progress
+                          value={((selectedCenter?.operationsUsed || 0) / (selectedCenter?.operationsLimit || 10)) * 100}
+                          className="h-3"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {((selectedCenter?.operationsUsed || 0) / (selectedCenter?.operationsLimit || 10) * 100).toFixed(1)}%
+                        </p>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                          <div>
+                            <Label className="text-blue-900 font-semibold">إعادة التعيين التلقائية</Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              يتم إعادة تعيين عداد التعديلات إلى الصفر تلقائياً في بداية كل شهر
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+
             <DialogFooter>
-              <Button onClick={() => setIsDetailsDialogOpen(false)}>إغلاق</Button>
+              <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>إغلاق</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -606,6 +943,74 @@ export function CentersManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Payment Recording Dialog */}
+        <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>تسجيل دفعة جديدة</DialogTitle>
+              <DialogDescription>
+                تسجيل دفعة جديدة لمركز: {selectedCenter?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>المبلغ المدفوع</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) })}
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">EGP</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>طريقة الدفع</Label>
+                <Select value={paymentForm.paymentType} onValueChange={(v) => setPaymentForm({ ...paymentForm, paymentType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">نقدي (Cash)</SelectItem>
+                    <SelectItem value="vodafone_cash">فودافون كاش</SelectItem>
+                    <SelectItem value="bank_transfer">تحويل بنكي</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>عدد أشهر الاشتراك</Label>
+                <Select
+                  value={paymentForm.subscriptionMonths.toString()}
+                  onValueChange={(v) => setPaymentForm({ ...paymentForm, subscriptionMonths: parseInt(v) })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">شهر واحد</SelectItem>
+                    <SelectItem value="3">3 أشهر</SelectItem>
+                    <SelectItem value="6">6 أشهر</SelectItem>
+                    <SelectItem value="12">سنة كاملة</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>ملاحظات (اختياري)</Label>
+                <Textarea
+                  placeholder="أضف أي ملاحظات إضافية..."
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>إلغاء</Button>
+              <Button onClick={handleRecordPayment} className="gap-2">
+                <Receipt className="h-4 w-4" />
+                تسجيل الدفعة
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
 
       </div>
     </div>

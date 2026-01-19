@@ -88,14 +88,12 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
     : [];
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    const url = e.target.value;
+    setLogoPreview(url);
+    // Assuming simple string update handled in handleSave via formData re-sync or separate state if needed.
+    // Actually, let's update formData logo if we had it there, but currently it seems separate or passed via centerData.
+    // We should probably add logo to formData or manage it alongside.
+    // Let's assume we update the logic in handleSave to read logoPreview directly or add logo to formData.
   };
 
   const handleGovernorateChange = (value: string) => {
@@ -106,47 +104,56 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
     });
   };
 
-  const handleStageChange = (stageId: string, checked: boolean) => {
+  const handleStageChange = (stageLabel: string, checked: boolean) => {
     if (checked) {
       setFormData({
         ...formData,
-        selectedStages: [...formData.selectedStages, stageId],
+        selectedStages: [...formData.selectedStages, stageLabel],
       });
     } else {
+      // Find the stage ID to get its grades
+      const stageObj = stages.find(s => s.label === stageLabel);
+      const stageGrades = stageObj && grades[stageObj.id as keyof typeof grades]
+        ? grades[stageObj.id as keyof typeof grades].map(g => g.label)
+        : [];
+
       setFormData({
         ...formData,
-        selectedStages: formData.selectedStages.filter((s) => s !== stageId),
+        selectedStages: formData.selectedStages.filter((s) => s !== stageLabel),
         selectedGrades: formData.selectedGrades.filter(
-          (g) => !grades[stageId as keyof typeof grades]?.some((grade) => grade.id === g)
+          (g) => !stageGrades.includes(g)
         ),
       });
     }
   };
 
-  const handleGradeChange = (gradeId: string, checked: boolean) => {
+  // Improved Logic:
+  // We will store the ARABIC LABELS directly in the array as requested.
+
+  const handleGradeChange = (gradeLabel: string, checked: boolean) => {
     if (checked) {
       setFormData({
         ...formData,
-        selectedGrades: [...formData.selectedGrades, gradeId],
+        selectedGrades: [...formData.selectedGrades, gradeLabel],
       });
     } else {
       setFormData({
         ...formData,
-        selectedGrades: formData.selectedGrades.filter((g) => g !== gradeId),
+        selectedGrades: formData.selectedGrades.filter((g) => g !== gradeLabel),
       });
     }
   };
 
-  const handleSubjectChange = (subjectId: string, checked: boolean) => {
+  const handleSubjectChange = (subjectLabel: string, checked: boolean) => {
     if (checked) {
       setFormData({
         ...formData,
-        selectedSubjects: [...formData.selectedSubjects, subjectId],
+        selectedSubjects: [...formData.selectedSubjects, subjectLabel],
       });
     } else {
       setFormData({
         ...formData,
-        selectedSubjects: formData.selectedSubjects.filter((s) => s !== subjectId),
+        selectedSubjects: formData.selectedSubjects.filter((s) => s !== subjectLabel),
       });
     }
   };
@@ -154,7 +161,6 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
   const handleSave = async () => {
     if (!canEdit) return;
 
-    // Validation
     if (!formData.governorate || !formData.area || !formData.address || !formData.workingHours || formData.selectedStages.length === 0) {
       toast.error("يرجى إكمال البيانات الأساسية (المحافظة، المنطقة، العنوان، مواعيد العمل، المراحل الدراسية)");
       return;
@@ -175,7 +181,9 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
         stages: formData.selectedStages,
         grades: formData.selectedGrades,
         subjects: formData.selectedSubjects,
-        // logo upload is handled separately usually, or base64 here if user wants, but assuming simple string update for now logic
+        logo: logoPreview, // Save the URL directly
+        // Update operations used locally handled by parent/context ideally, but strictly Firestore update here
+        operationsUsed: (centerData.operationsUsed || 0) + 1 // Increment operation count
       });
       toast.success("تم حفظ التغييرات بنجاح");
     } catch (error) {
@@ -218,7 +226,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
           <CardContent className="space-y-4">
             {/* Logo */}
             <div className="space-y-2">
-              <Label>شعار المركز</Label>
+              <Label>شعار المركز (رابط الصورة)</Label>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted">
                   {logoPreview ? (
@@ -228,11 +236,13 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                   )}
                 </div>
                 <Input
-                  type="file"
-                  accept="image/*"
+                  type="url"
+                  placeholder="https://example.com/logo.jpg"
+                  value={logoPreview || ""}
                   onChange={handleLogoChange}
                   disabled={!canEdit}
                   className="flex-1"
+                  dir="ltr"
                 />
               </div>
             </div>
@@ -258,8 +268,9 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
           </CardContent>
         </Card>
 
-        {/* Location */}
+        {/* Location & Contact... (Unchanged sections omitted for brevity in thought process, but included in output if separate chunks not used) */}
         <Card>
+          {/* ... Location ... */}
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
@@ -267,6 +278,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* ... */}
             <div className="space-y-2">
               <Label>المحافظة <span className="text-destructive">*</span></Label>
               <Select
@@ -286,7 +298,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                 </SelectContent>
               </Select>
             </div>
-
+            {/* ... Area & Address ... */}
             <div className="space-y-2">
               <Label>المنطقة</Label>
               <Select
@@ -306,7 +318,6 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>العنوان بالتفصيل</Label>
               <Input
@@ -387,8 +398,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id={stage.id}
-                      checked={formData.selectedStages.includes(stage.id)}
-                      onCheckedChange={(checked) => handleStageChange(stage.id, checked as boolean)}
+                      checked={formData.selectedStages.includes(stage.label)}
+                      onCheckedChange={(checked) => handleStageChange(stage.label, checked as boolean)}
                       disabled={!canEdit}
                     />
                     <Label htmlFor={stage.id} className="font-medium cursor-pointer">
@@ -396,14 +407,14 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                     </Label>
                   </div>
 
-                  {formData.selectedStages.includes(stage.id) && (
+                  {formData.selectedStages.includes(stage.label) && (
                     <div className="mr-6 grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {grades[stage.id as keyof typeof grades].map((grade) => (
                         <div key={grade.id} className="flex items-center gap-2">
                           <Checkbox
                             id={grade.id}
-                            checked={formData.selectedGrades.includes(grade.id)}
-                            onCheckedChange={(checked) => handleGradeChange(grade.id, checked as boolean)}
+                            checked={formData.selectedGrades.includes(grade.label)}
+                            onCheckedChange={(checked) => handleGradeChange(grade.label, checked as boolean)}
                             disabled={!canEdit}
                           />
                           <Label htmlFor={grade.id} className="text-sm cursor-pointer">
@@ -438,15 +449,15 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                     {category.subjects.map((subject) => (
                       <div
                         key={subject.id}
-                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${formData.selectedSubjects.includes(subject.id)
+                        className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${formData.selectedSubjects.includes(subject.label)
                           ? "border-primary bg-primary/5"
                           : "border-border"
                           }`}
                       >
                         <Checkbox
                           id={subject.id}
-                          checked={formData.selectedSubjects.includes(subject.id)}
-                          onCheckedChange={(checked) => handleSubjectChange(subject.id, checked as boolean)}
+                          checked={formData.selectedSubjects.includes(subject.label)}
+                          onCheckedChange={(checked) => handleSubjectChange(subject.label, checked as boolean)}
                           disabled={!canEdit}
                         />
                         <Label htmlFor={subject.id} className="text-sm cursor-pointer flex-1">

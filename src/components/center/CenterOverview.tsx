@@ -1,18 +1,21 @@
-import { Users, Clock, Calendar, Eye, TrendingUp, AlertCircle } from "lucide-react";
+import { Users, Clock, Calendar, Eye, TrendingUp, AlertCircle, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { collection, getCountFromServer, query, where, getDocs, limit, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { formatArabicDateTime, formatArabicDate } from "@/lib/dateUtils";
 
 interface CenterOverviewProps {
   centerData: {
-    id: string; // Added id
+    id: string;
     name: string;
+    logo?: string;
     operationsUsed: number;
     operationsLimit: number;
     subscription: {
       status: "active" | "expired" | "suspended";
+      startDate?: string;
       endDate: string;
     };
   };
@@ -41,11 +44,18 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
     fetchCounts();
   }, [centerData.id]);
 
+  const remainingOperations = centerData.operationsLimit - centerData.operationsUsed;
+
   const stats = [
     { title: "المدرسين", value: counts.teachers, icon: Users, color: "text-blue-600" },
     { title: "الحصص المسجلة", value: counts.sessions, icon: Clock, color: "text-green-600" },
-    { title: "العمليات المستهلكة", value: centerData.operationsUsed, icon: Calendar, color: "text-purple-600" },
-    { title: "التقييم العام", value: 0, icon: Eye, color: "text-accent" }, // Placeholder for now
+    {
+      title: "استهلاك العمليات",
+      value: `${centerData.operationsUsed} / ${centerData.operationsLimit}`,
+      subValue: `المتبقي: ${remainingOperations}`,
+      icon: Calendar,
+      color: remainingOperations < 3 ? "text-destructive" : "text-purple-600"
+    },
   ];
 
   const recentActivity = [
@@ -66,13 +76,23 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
     }
   };
 
-  const remainingOperations = centerData.operationsLimit - centerData.operationsUsed;
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">مرحبًا بك في لوحة التحكم</h1>
-        <p className="text-muted-foreground">إدارة مركزك التعليمي بسهولة</p>
+      {/* Header with Logo */}
+      <div className="flex items-center gap-4">
+        {centerData.logo && (
+          <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-primary/20 flex-shrink-0">
+            <img
+              src={centerData.logo}
+              alt={centerData.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold">مرحبًا بك في لوحة التحكم</h1>
+          <p className="text-muted-foreground">إدارة مركزك التعليمي بسهولة</p>
+        </div>
       </div>
 
       {/* Alerts */}
@@ -82,12 +102,12 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
             <AlertCircle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-destructive">
-                {remainingOperations === 0
+                {remainingOperations <= 0
                   ? "انتهت العمليات المتاحة"
-                  : `تبقى ${remainingOperations} عمليات فقط`}
+                  : `تنبيه: تبقى ${remainingOperations} عمليات تعديل فقط`}
               </p>
               <p className="text-sm text-muted-foreground">
-                جدد اشتراكك للحصول على المزيد من العمليات
+                يرجى التواصل مع الإدارة لتجديد الباقة أو زيادة الحد المسموح.
               </p>
             </div>
           </CardContent>
@@ -95,7 +115,7 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map((stat, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -106,13 +126,16 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
+              {stat.subValue && (
+                <p className="text-xs text-muted-foreground mt-1 font-medium">{stat.subValue}</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Subscription Status */}
+        {/* Subscription Status - Enhanced */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -121,11 +144,27 @@ export function CenterOverview({ centerData }: CenterOverviewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">تاريخ الانتهاء</span>
-              <span className="font-medium">{centerData.subscription.endDate}</span>
+            {centerData.subscription.startDate && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Calendar className="h-4 w-4" />
+                  <span>تاريخ البداية</span>
+                </div>
+                <p className="font-medium text-lg">
+                  {formatArabicDateTime(centerData.subscription.startDate)}
+                </p>
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Calendar className="h-4 w-4" />
+                <span>تاريخ الانتهاء</span>
+              </div>
+              <p className="font-medium text-lg">
+                {formatArabicDateTime(centerData.subscription.endDate)}
+              </p>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pt-2 border-t">
               <span className="text-muted-foreground">العمليات المستخدمة</span>
               <span className="font-medium">{centerData.operationsUsed} / {centerData.operationsLimit}</span>
             </div>

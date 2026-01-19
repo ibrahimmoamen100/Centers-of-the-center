@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { CenterSidebar } from "@/components/center/CenterSidebar";
@@ -22,7 +22,9 @@ export default function CenterDashboard() {
   const [centerData, setCenterData] = useState<any>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let snapshotUnsubscribe: (() => void) | undefined;
+
+    const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         navigate("/center/login");
         return;
@@ -30,42 +32,52 @@ export default function CenterDashboard() {
 
       try {
         const docRef = doc(db, "centers", user.uid);
-        const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        // Use onSnapshot for real-time updates
+        snapshotUnsubscribe = onSnapshot(docRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
 
-          // Check expiration
-          const now = new Date();
-          const endDate = data.subscription?.endDate ? new Date(data.subscription.endDate) : null;
-          const isExpired = endDate && endDate < now;
-          const subStatus = isExpired ? 'expired' : (data.subscription?.status || 'inactive');
+            // Check expiration
+            const now = new Date();
+            const endDate = data.subscription?.endDate ? new Date(data.subscription.endDate) : null;
+            const isExpired = endDate && endDate < now;
+            const subStatus = isExpired ? 'expired' : (data.subscription?.status || 'inactive');
 
-          // Normalize Data
-          setCenterData({
-            ...data, // Include all other properties from the document
-            id: user.uid,
-            name: data.name || data.centerName || "المركز التعليمي",
-            logo: data.logo || null,
-            operationsUsed: data.operationsUsed || 0,
-            operationsLimit: data.operationsLimit || 10,
-            subscription: {
-              ...(data.subscription || {}),
-              status: subStatus
-            }
-          });
-        } else {
-          toast.error("لم يتم العثور على بيانات المركز");
-        }
+            // Normalize Data
+            setCenterData({
+              ...data, // Include all other properties from the document
+              id: user.uid,
+              name: data.name || data.centerName || "المركز التعليمي",
+              logo: data.logo || null,
+              operationsUsed: data.operationsUsed || 0,
+              operationsLimit: data.operationsLimit || 10,
+              subscription: {
+                ...(data.subscription || {}),
+                status: subStatus
+              }
+            });
+          } else {
+            toast.error("لم يتم العثور على بيانات المركز");
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Error fetching center data realtime:", error);
+          toast.error("حدث خطأ أثناء جلب البيانات");
+          setLoading(false);
+        });
+
       } catch (error) {
-        console.error("Error fetching center data:", error);
-        toast.error("حدث خطأ أثناء جلب البيانات");
-      } finally {
+        console.error("Error setting up listener:", error);
+        toast.error("فشل الاتصال بقاعدة البيانات");
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsubscribe();
+      if (snapshotUnsubscribe) snapshotUnsubscribe();
+    };
   }, [navigate]);
 
   if (loading) {

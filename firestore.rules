@@ -39,6 +39,33 @@ service cloud.firestore {
       allow update: if isSuperAdmin();
     }
     
+    // teachers - subcollection under centers
+    match /centers/{centerId}/teachers/{teacherId} {
+      // Center admin can manage their own teachers
+      allow read, write: if isSignedIn() && request.auth.uid == centerId;
+      
+      // Super admin has full access
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // sessions - subcollection under centers
+    match /centers/{centerId}/sessions/{sessionId} {
+      // Center admin can manage their own sessions
+      allow read, write: if isSignedIn() && request.auth.uid == centerId;
+      
+      // Super admin has full access
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // payments - top-level collection
+    match /payments/{paymentId} {
+      // Super admin can read and create payment records
+      allow read, create: if isSuperAdmin();
+      
+      // Center admin can read their own payment records
+      allow read: if isSignedIn() && resource.data.centerId == request.auth.uid;
+    }
+    
     // invitations
     match /invitations/{invitationId} {
       allow read: if isSuperAdmin();
