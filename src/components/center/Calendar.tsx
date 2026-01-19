@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { arEG } from "date-fns/locale";
-import { ChevronRight, ChevronLeft, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { ChevronRight, ChevronLeft, Calendar as CalendarIcon, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatArabicTime } from "@/lib/dateUtils";
 
-// Types matching the Session interface in SessionsManagement
 interface Session {
     id: string;
     subject: string;
     teacherId: string;
     teacherName: string;
+    teacherImage?: string; // Added teacherImage
     grade: string;
     type: 'recurring' | 'single';
     day?: string;
@@ -59,12 +59,30 @@ export function Calendar({ sessions }: CalendarProps) {
     // Helper to get sessions for a specific date
     const getSessionsForDate = (date: Date) => {
         const dayName = date.toLocaleDateString("ar-EG", { weekday: "long" });
+        const checkTime = date.getTime();
 
         return sessions.filter(session => {
             if (session.type === "recurring") {
-                return session.day === dayName;
+                // Must match Day Name ("السبت", etc.)
+                if (session.day !== dayName) return false;
+
+                // Check Date Ranges
+                // startDateTime for recurring is "YYYY-MM-DD"
+                const startDate = startOfDay(new Date(session.startDateTime));
+
+                // If current date is before start date, hide it
+                if (date < startDate) return false;
+
+                // If end date exists, check it
+                if (session.endDateTime) {
+                    const endDate = endOfDay(new Date(session.endDateTime));
+                    if (date > endDate) return false;
+                }
+
+                return true;
             } else {
-                // Check if single session is on this day
+                // Single Session
+                // startDateTime is ISO DateTime
                 const sessionDate = new Date(session.startDateTime);
                 return isSameDay(sessionDate, date);
             }
@@ -78,13 +96,6 @@ export function Calendar({ sessions }: CalendarProps) {
         const startDate = startOfWeek(monthStart, { weekStartsOn: 6 }); // Start on Saturday
         const endDate = endOfWeek(monthEnd, { weekStartsOn: 6 });
 
-        const dateFormat = "d";
-        const rows = [];
-        let days = [];
-        let day = startDate;
-        let formattedDate = "";
-
-        // Header (Days of week)
         const weekDays = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
 
         return (
@@ -105,13 +116,14 @@ export function Calendar({ sessions }: CalendarProps) {
                         return (
                             <div
                                 key={idx}
-                                className={`min-h-[100px] border rounded-lg p-2 ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : ''} ${isToday ? 'border-primary bg-primary/5' : ''}`}
+                                className={`min-h-[100px] border rounded-lg p-2 cursor-pointer hover:bg-muted/50 transition-colors ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : ''} ${isToday ? 'border-primary bg-primary/5' : ''}`}
                                 onClick={() => { setCurrentDate(dayItem); setView('day'); }}
                             >
                                 <div className="font-medium text-right mb-1">{format(dayItem, "d")}</div>
                                 <div className="space-y-1">
                                     {daySessions.slice(0, 3).map(session => (
-                                        <div key={session.id} className="text-[10px] p-1 rounded bg-secondary truncate">
+                                        <div key={session.id} className="text-[10px] p-1 rounded bg-secondary truncate flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                                             {session.subject}
                                         </div>
                                     ))}
@@ -150,20 +162,25 @@ export function Calendar({ sessions }: CalendarProps) {
                                     <div className="text-sm text-muted-foreground">{format(dayItem, "d MMM", { locale: arEG })}</div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-2 space-y-2">
+                            <CardContent className="p-2 space-y-2 min-h-[150px]">
                                 {daySessions.length === 0 ? (
                                     <div className="text-center py-4 text-xs text-muted-foreground">لا توجد حصص</div>
                                 ) : (
                                     daySessions.map(session => (
-                                        <div key={session.id} className="p-2 rounded-md border bg-card hover:bg-accent transition-colors text-right">
-                                            <div className="font-semibold text-sm truncate">{session.subject}</div>
-                                            <div className="text-xs text-muted-foreground truncate">{session.teacherName}</div>
-                                            <div className="flex items-center gap-1 mt-1 text-[10px] text-primary font-medium">
-                                                <Clock className="w-3 h-3" />
-                                                {session.type === 'recurring'
-                                                    ? formatArabicTime(session.sessionTime ? `2000-01-01T${session.sessionTime}` : undefined)
-                                                    : formatArabicTime(session.startDateTime)
-                                                }
+                                        <div key={session.id} className="p-2 rounded-md border bg-card hover:bg-accent transition-colors text-right relative overflow-hidden group">
+                                            <div className={`absolute right-0 top-0 bottom-0 w-1 ${session.type === 'recurring' ? 'bg-blue-500' : 'bg-purple-500'}`} />
+                                            <div className="pr-2">
+                                                <div className="font-semibold text-sm truncate">{session.subject}</div>
+                                                <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                                    {session.teacherName}
+                                                </div>
+                                                <div className="flex items-center gap-1 mt-1 text-[10px] text-primary font-medium">
+                                                    <Clock className="w-3 h-3" />
+                                                    {session.type === 'recurring'
+                                                        ? formatArabicTime(session.sessionTime ? `2000-01-01T${session.sessionTime}` : undefined)
+                                                        : formatArabicTime(session.startDateTime)
+                                                    }
+                                                </div>
                                             </div>
                                         </div>
                                     ))
@@ -195,25 +212,42 @@ export function Calendar({ sessions }: CalendarProps) {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {daySessions.map(session => (
-                            <Card key={session.id} className="border-r-4 border-r-primary">
+                            <Card key={session.id} className="border-r-4 border-r-primary overflow-hidden">
                                 <CardContent className="p-6">
                                     <div className="flex justify-between items-start mb-4">
                                         <Badge>{session.subject}</Badge>
                                         <Badge variant="outline">{session.grade}</Badge>
                                     </div>
-                                    <h3 className="text-xl font-bold mb-2">{session.teacherName}</h3>
-                                    <div className="flex items-center gap-2 text-muted-foreground mb-4">
+
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-12 h-12 rounded-full border bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                                            {session.teacherImage ? (
+                                                <img src={session.teacherImage} alt={session.teacherName} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <User className="h-6 w-6 text-muted-foreground" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-bold">{session.teacherName}</h3>
+                                            <div className="text-xs text-muted-foreground">
+                                                {session.type === 'recurring' ? 'حصة مستمرة' : 'حصة فردية'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-muted-foreground mb-4 bg-muted/30 p-2 rounded-md">
                                         <Clock className="w-4 h-4" />
-                                        <span className="text-lg">
+                                        <span className="text-lg font-semibold text-foreground">
                                             {session.type === 'recurring'
                                                 ? formatArabicTime(session.sessionTime ? `2000-01-01T${session.sessionTime}` : undefined)
                                                 : formatArabicTime(session.startDateTime)
                                             }
                                         </span>
                                     </div>
-                                    {session.endDateTime && (
-                                        <div className="text-sm text-muted-foreground border-t pt-2">
-                                            تاريخ النهاية: {new Date(session.endDateTime).toLocaleDateString('ar-EG')}
+
+                                    {session.type === 'recurring' && session.endDateTime && (
+                                        <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                                            ينتهي في: {new Date(session.endDateTime).toLocaleDateString('ar-EG')}
                                         </div>
                                     )}
                                 </CardContent>

@@ -16,6 +16,7 @@ interface Session {
   subject: string;
   teacherId: string;
   teacherName: string;
+  teacherImage?: string;
   grade: string;
   type: 'recurring' | 'single';
   day?: string;
