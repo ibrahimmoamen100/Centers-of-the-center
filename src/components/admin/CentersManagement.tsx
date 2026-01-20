@@ -81,6 +81,7 @@ interface Center {
   operationsLimit: number;
   teacherCount?: number;
   paymentHistory?: Payment[];
+  displayPriority?: number | null; // ترتيب الأولوية
 }
 
 // Payment History Table Component
@@ -192,6 +193,7 @@ export function CentersManagement() {
   const [isLimitDialogOpen, setIsLimitDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isPriorityDialogOpen, setIsPriorityDialogOpen] = useState(false);
 
   // Renew / Approve Form State
   const [renewForm, setRenewForm] = useState({ durationMonths: 1, amount: 300, paymentType: "cash", notes: "" });
@@ -201,6 +203,9 @@ export function CentersManagement() {
 
   // Payment Form State
   const [paymentForm, setPaymentForm] = useState({ amount: 300, paymentType: "cash", notes: "", subscriptionMonths: 1 });
+
+  // Priority Form State
+  const [priorityForm, setPriorityForm] = useState<{ priority: number | null }>({ priority: null });
 
   // Fetch Centers
   const fetchCenters = async () => {
@@ -377,6 +382,46 @@ export function CentersManagement() {
     }
   };
 
+  // Handle Priority Update
+  const handleUpdatePriority = async () => {
+    if (!selectedCenter) return;
+
+    try {
+      const newPriority = priorityForm.priority;
+
+      // Validation: Check if priority already exists (if not null)
+      if (newPriority !== null) {
+        const duplicate = centers.find(
+          (c) => c.id !== selectedCenter.id && c.displayPriority === newPriority
+        );
+
+        if (duplicate) {
+          toast.error(`الأولوية ${newPriority} مستخدمة بالفعل للمركز "${duplicate.name}"`);
+          return;
+        }
+
+        // Validate positive integer
+        if (newPriority < 1 || !Number.isInteger(newPriority)) {
+          toast.error("يرجى إدخال رقم صحيح موجب (1, 2, 3, ...)");
+          return;
+        }
+      }
+
+      // Update Firestore
+      await updateDoc(doc(db, "centers", selectedCenter.id), {
+        displayPriority: newPriority,
+      });
+
+      toast.success("تم تحديث أولوية الظهور بنجاح");
+      setIsPriorityDialogOpen(false);
+      setPriorityForm({ priority: null });
+      fetchCenters();
+    } catch (error) {
+      console.error(error);
+      toast.error("فشل تحديث الأولوية");
+    }
+  };
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -436,6 +481,7 @@ export function CentersManagement() {
                     <TableHead className="text-right">بيانات المركز</TableHead>
                     <TableHead className="text-right">تفاصيل الاشتراك</TableHead>
                     <TableHead className="text-right hidden md:table-cell">الاستهلاك / الحد</TableHead>
+                    <TableHead className="text-right hidden lg:table-cell w-[120px]">أولوية الظهور</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right w-[70px]">إجراءات</TableHead>
                   </TableRow>
@@ -478,6 +524,20 @@ export function CentersManagement() {
                           </div>
                           <Progress value={((center.operationsUsed || 0) / (center.operationsLimit || 10)) * 100} className="h-2" />
                         </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-16 font-mono"
+                          onClick={() => {
+                            setSelectedCenter(center);
+                            setPriorityForm({ priority: center.displayPriority ?? null });
+                            setIsPriorityDialogOpen(true);
+                          }}
+                        >
+                          {center.displayPriority ?? "-"}
+                        </Button>
                       </TableCell>
                       <TableCell>{getStatusBadge(center.status)}</TableCell>
                       <TableCell>
@@ -533,6 +593,15 @@ export function CentersManagement() {
                             }}>
                               <Receipt className="h-4 w-4" />
                               تسجيل دفعة جديدة
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem className="gap-2" onClick={() => {
+                              setSelectedCenter(center);
+                              setPriorityForm({ priority: center.displayPriority ?? null });
+                              setIsPriorityDialogOpen(true);
+                            }}>
+                              <Sliders className="h-4 w-4" />
+                              أولوية الظهور
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator />
@@ -1006,6 +1075,71 @@ export function CentersManagement() {
               <Button onClick={handleRecordPayment} className="gap-2">
                 <Receipt className="h-4 w-4" />
                 تسجيل الدفعة
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Display Priority Dialog */}
+        <Dialog open={isPriorityDialogOpen} onOpenChange={setIsPriorityDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sliders className="h-5 w-5" />
+                إدارة أولوية الظهور
+              </DialogTitle>
+              <DialogDescription>
+                تحديد ترتيب ظهور المركز في صفحة البحث: <strong>{selectedCenter?.name}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>رقم الأولوية</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="اترك فارغاً لإلغاء الأولوية"
+                  value={priorityForm.priority ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPriorityForm({
+                      priority: value === "" ? null : parseInt(value),
+                    });
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  • أصغر رقم = أعلى أولوية (يظهر أولاً)
+                  <br />
+                  • المراكز بدون أولوية تظهر بعد المراكز ذات الأولوية
+                  <br />
+                  • لا يمكن تكرار نفس الرقم
+                </p>
+              </div>
+
+              {priorityForm.priority !== null && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="text-blue-900">
+                    ✨ سيظهر هذا المركز في المركز رقم <strong>{priorityForm.priority}</strong> في نتائج البحث
+                  </p>
+                </div>
+              )}
+
+              {priorityForm.priority === null && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                  <p className="text-amber-900">
+                    ⚠️ سيتم إلغاء الأولوية - سيظهر المركز بعد المراكز ذات الأولوية
+                  </p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPriorityDialogOpen(false)}>
+                إلغاء
+              </Button>
+              <Button onClick={handleUpdatePriority} className="gap-2">
+                <Sliders className="h-4 w-4" />
+                حفظ الأولوية
               </Button>
             </DialogFooter>
           </DialogContent>

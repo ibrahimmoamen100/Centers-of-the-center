@@ -24,6 +24,7 @@ export interface Center {
     searchKeywords?: string[]; // للبحث السريع
     createdAt?: any;
     displayOrder?: number;
+    displayPriority?: number | null; // ترتيب الأولوية (أقل رقم = يظهر أولاً)
     workingHours?: string;
     openingTime?: string;
     closingTime?: string;

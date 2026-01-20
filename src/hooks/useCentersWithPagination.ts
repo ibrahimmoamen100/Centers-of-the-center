@@ -135,12 +135,29 @@ export function useCentersWithPagination() {
             // Limit to pageSize بعد الفلترة
             fetchedCenters = fetchedCenters.slice(0, pageSize);
 
-            // Client-side sorting
+            // ✨ Client-side sorting based on displayPriority
+            // 1. Centers with displayPriority (sorted ascending by priority number)
+            // 2. Centers without displayPriority (sorted descending by createdAt)
             fetchedCenters.sort((a, b) => {
-                const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
-                const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
-                if (orderA !== orderB) return orderA - orderB;
+                const priorityA = a.displayPriority ?? null;
+                const priorityB = b.displayPriority ?? null;
 
+                // Both have priority - sort by priority (lower is first)
+                if (priorityA !== null && priorityB !== null) {
+                    return priorityA - priorityB;
+                }
+
+                // Only A has priority - A comes first
+                if (priorityA !== null && priorityB === null) {
+                    return -1;
+                }
+
+                // Only B has priority - B comes first
+                if (priorityA === null && priorityB !== null) {
+                    return 1;
+                }
+
+                // Neither has priority - sort by createdAt (newest first)
                 const getMillis = (d: any) => d?.toMillis ? d.toMillis() : (d ? new Date(d).getTime() : 0);
                 return getMillis(b.createdAt) - getMillis(a.createdAt);
             });
