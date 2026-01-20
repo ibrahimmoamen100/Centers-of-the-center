@@ -127,10 +127,24 @@ export function useCenterDetails(identifier?: string) {
                     const teachersSnapshot = await getDocs(
                         collection(db, 'centers', centerId, 'teachers')
                     );
-                    const teachersList = teachersSnapshot.docs.map((doc) => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    })) as any[];
+
+                    // ✅ تطبيع البيانات (Normalize data)
+                    const teachersList = teachersSnapshot.docs.map((doc) => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            name: data.name,
+                            // ✅ دعم photo أو image
+                            photo: data.photo || data.image || data.profilePic,
+                            // ✅ دعم subjects array أو subject string
+                            subjects: Array.isArray(data.subjects)
+                                ? data.subjects
+                                : (data.subject ? [data.subject] : []),
+                            experience: data.experience,
+                            rating: data.rating,
+                            bio: data.bio || data.description,
+                        };
+                    });
 
                     console.log(`✅ Fetched ${teachersList.length} teachers`);
                     setTeachers(teachersList);
