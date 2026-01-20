@@ -30,21 +30,23 @@ interface FilterState {
   subjects: string[];
 }
 
+// ✅ القيم باللغة العربية (تطابق ما هو مخزن في Firebase)
 const stages = [
-  { value: "preparatory", label: "إعدادي" },
-  { value: "secondary", label: "ثانوي" },
+  { value: "المرحلة الإعدادية", label: "المرحلة الإعدادية" },
+  { value: "المرحلة الثانوية", label: "المرحلة الثانوية" },
 ];
 
+// ✅ الصفوف باللغة العربية (تطابق Firebase)
 const gradesByStage: Record<string, { value: string; label: string }[]> = {
-  preparatory: [
-    { value: "prep1", label: "الصف الأول الإعدادي" },
-    { value: "prep2", label: "الصف الثاني الإعدادي" },
-    { value: "prep3", label: "الصف الثالث الإعدادي" },
+  "المرحلة الإعدادية": [
+    { value: "الصف الأول الإعدادي", label: "الصف الأول الإعدادي" },
+    { value: "الصف الثاني الإعدادي", label: "الصف الثاني الإعدادي" },
+    { value: "الصف الثالث الإعدادي", label: "الصف الثالث الإعدادي" },
   ],
-  secondary: [
-    { value: "sec1", label: "الصف الأول الثانوي" },
-    { value: "sec2", label: "الصف الثاني الثانوي" },
-    { value: "sec3", label: "الصف الثالث الثانوي" },
+  "المرحلة الثانوية": [
+    { value: "الصف الأول الثانوي", label: "الصف الأول الثانوي" },
+    { value: "الصف الثاني الثانوي", label: "الصف الثاني الثانوي" },
+    { value: "الصف الثالث الثانوي", label: "الصف الثالث الثانوي" },
   ],
 };
 
@@ -58,17 +60,17 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
     subjects: [],
   });
 
-  const availableAreas = filters.governorate 
-    ? areasByGovernorate[filters.governorate as Governorate] 
+  const availableAreas = filters.governorate
+    ? areasByGovernorate[filters.governorate as Governorate]
     : [];
 
-  const availableGrades = filters.stage 
+  const availableGrades = filters.stage
     ? gradesByStage[filters.stage] || []
     : [];
 
   const handleFilterChange = (key: keyof Omit<FilterState, 'subjects'>, value: string) => {
     let newFilters = { ...filters, [key]: value };
-    
+
     // Reset dependent fields
     if (key === "governorate") {
       newFilters.area = "";
@@ -76,7 +78,7 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
     if (key === "stage") {
       newFilters.grade = "";
     }
-    
+
     setFilters(newFilters);
     onFilterChange(newFilters);
   };
@@ -85,7 +87,7 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
     const newSubjects = checked
       ? [...filters.subjects, subjectId]
       : filters.subjects.filter((s) => s !== subjectId);
-    
+
     const newFilters = { ...filters, subjects: newSubjects };
     setFilters(newFilters);
     onFilterChange(newFilters);
@@ -103,7 +105,7 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
     onFilterChange(emptyFilters);
   };
 
-  const activeFiltersCount = 
+  const activeFiltersCount =
     Object.entries(filters)
       .filter(([key, value]) => {
         if (key === 'subjects') return (value as string[]).length > 0;
@@ -221,7 +223,7 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
             <Button variant="outline" className="justify-between h-10 font-normal">
               {filters.subjects.length > 0 ? (
                 <span className="truncate">
-                  {filters.subjects.length === 1 
+                  {filters.subjects.length === 1
                     ? getSubjectLabel(filters.subjects[0])
                     : `${filters.subjects.length} مواد`
                   }
@@ -245,11 +247,11 @@ const SearchFilters = ({ onFilterChange }: SearchFiltersProps) => {
                         <Checkbox
                           id={`filter-${subject.id}`}
                           checked={filters.subjects.includes(subject.id)}
-                          onCheckedChange={(checked) => 
+                          onCheckedChange={(checked) =>
                             handleSubjectToggle(subject.id, checked as boolean)
                           }
                         />
-                        <Label 
+                        <Label
                           htmlFor={`filter-${subject.id}`}
                           className="text-sm cursor-pointer flex-1"
                         >

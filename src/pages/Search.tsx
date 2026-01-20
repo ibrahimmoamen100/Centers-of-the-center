@@ -1,68 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, Loader2 } from "lucide-react";
+import { Search as SearchIcon, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SearchFilters from "@/components/search/SearchFilters";
 import CenterCard from "@/components/centers/CenterCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useCenters } from "@/hooks/useCenters";
+import { useCentersWithPagination } from "@/hooks/useCentersWithPagination";
+import { useCentersStore } from "@/stores/centersStore";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [filters, setFilters] = useState({
-    governorate: "",
-    area: "",
-    stage: "",
-    grade: "",
-    subjects: [] as string[],
-  });
+  const { setFilters } = useCentersStore();
 
-  // Fetch centers with applied filters
-  const { centers, loading, error } = useCenters({
-    governorate: filters.governorate,
-    area: filters.area,
-    stage: filters.stage,
-    grade: filters.grade, // Added grade filter
-    subjects: filters.subjects,
-  });
+  // Use new hook with pagination
+  const { centers, loading, error, hasMore, loadMore, currentPage } = useCentersWithPagination();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Search logic would go here
-    // You could filter centers based on searchQuery
+    // Update filters with search query
+    setFilters({ searchQuery: searchQuery.trim() });
   };
 
-  // Enhanced filter: search in center name, subjects, location, and teacher names
-  // Note: Teacher search is limited as teachers are in subcollection
-  // For full teacher search, you'd need to fetch teachers separately
+  const handleFilterChange = (newFilters: any) => {
+    setFilters({
+      governorate: newFilters.governorate,
+      area: newFilters.area,
+      stage: newFilters.stage,
+      grade: newFilters.grade,
+      subjects: newFilters.subjects,
+      searchQuery: searchQuery.trim(),
+    });
+  };
+
+  // Client-side filter for search query (in addition to server-side searchKeywords)
   const filteredCenters = searchQuery
-    ? centers.filter(
-      (center) => {
-        const query = searchQuery.toLowerCase();
-
-        // Search in center name
-        if (center.name.toLowerCase().includes(query)) return true;
-
-        // Search in subjects
-        if (center.subjects.some((subject) =>
-          subject.toLowerCase().includes(query)
-        )) return true;
-
-        // Search in location
-        if (center.location?.toLowerCase().includes(query)) return true;
-
-        // Search in governorate
-        if (center.governorate?.toLowerCase().includes(query)) return true;
-
-        // Search in area
-        if (center.area?.toLowerCase().includes(query)) return true;
-
-        return false;
-      }
-    )
+    ? centers.filter((center) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        center.name.toLowerCase().includes(query) ||
+        center.subjects?.some((subject) => subject.toLowerCase().includes(query)) ||
+        center.location?.toLowerCase().includes(query) ||
+        center.governorate?.toLowerCase().includes(query) ||
+        center.area?.toLowerCase().includes(query) ||
+        center.searchKeywords?.some((keyword) => keyword.includes(query))
+      );
+    })
     : centers;
 
   return (
@@ -96,11 +81,11 @@ const Search = () => {
 
           {/* Filters */}
           <div className="mb-8">
-            <SearchFilters onFilterChange={setFilters} />
+            <SearchFilters onFilterChange={handleFilterChange} />
           </div>
 
           {/* Loading State */}
-          {loading && (
+          {loading && centers.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="mr-3 text-muted-foreground">جاري البحث...</span>
@@ -120,12 +105,8 @@ const Search = () => {
               <div className="mb-6 flex items-center justify-between">
                 <p className="text-muted-foreground">
                   تم العثور على <span className="font-bold text-foreground">{filteredCenters.length}</span> مركز
+                  {currentPage > 1 && <span className="text-sm mr-2">(الصفحة {currentPage})</span>}
                 </p>
-                <select className="bg-background border border-border rounded-lg px-4 py-2 text-sm">
-                  <option>الأعلى تقييماً</option>
-                  <option>الأقرب إليك</option>
-                  <option>الأحدث</option>
-                </select>
               </div>
 
               {/* Empty State */}
@@ -147,18 +128,34 @@ const Search = () => {
                 </div>
               )}
 
-              {/* Pagination placeholder - can be enhanced later */}
+              {/* Pagination */}
               {filteredCenters.length > 0 && (
-                <div className="mt-12 flex justify-center">
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" disabled>
-                      السابق
+                <div className="mt-12 flex flex-col items-center gap-4">
+                  {hasMore && (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={loadMore}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                          جاري التحميل...
+                        </>
+                      ) : (
+                        <>
+                          <ChevronLeft className="h-4 w-4 ml-2" />
+                          تحميل المزيد (9 مراكز)
+                        </>
+                      )}
                     </Button>
-                    <Button variant="default">1</Button>
-                    <Button variant="outline" disabled>
-                      التالي
-                    </Button>
-                  </div>
+                  )}
+
+                  <p className="text-sm text-muted-foreground">
+                    عرض {filteredCenters.length} مركز
+                    {!hasMore && <span className="mr-1">• تم عرض جميع النتائج</span>}
+                  </p>
                 </div>
               )}
             </>

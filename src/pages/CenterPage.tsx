@@ -1,7 +1,4 @@
-import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { MapPin, Phone, Clock, Star, Users, Facebook, Instagram, MessageCircle, Share2, Loader2, AlertCircle } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -10,192 +7,15 @@ import TeacherCard from "@/components/centers/TeacherCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  getStageLabel,
-  formatLocation,
-  formatWorkingHoursDisplay
-} from "@/lib/centerUtils";
-
-// Interfaces defined for type safety.
-
-interface Teacher {
-  id: string;
-  name: string;
-  photo?: string;
-  image?: string;
-  subjects?: string[];
-  subject?: string;
-  experience?: string;
-  rating?: number;
-  bio?: string;
-}
-
-interface Session {
-  id: string;
-  subject: string;
-  teacher?: string;
-  teacherName?: string;
-  time?: string;
-  sessionTime?: string;
-  duration?: number;
-  day?: number | string;
-  color?: string;
-  type?: 'recurring' | 'single';
-  startDateTime?: string;
-  endDateTime?: string;
-}
-
-interface CenterData {
-  id: string;
-  name: string;
-  logo?: string | null;
-  description?: string;
-  location: string;
-  governorate?: string;
-  area?: string;
-  address: string;
-  phone: string;
-  stages: string[];
-  grades: string[];
-  subjects: string[];
-  rating: number;
-  reviewCount: number;
-  teacherCount: number;
-  workingHours?: string;
-  openingTime?: string;
-  closingTime?: string;
-  centerUsername?: string;
-  social?: {
-    facebook?: string;
-    instagram?: string;
-    whatsapp?: string;
-  };
-}
+import { formatWorkingHoursDisplay } from "@/lib/centerUtils";
+import { useCenterDetails } from "@/hooks/useCenterDetails";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const CenterPage = () => {
   const { id: identifier } = useParams();
-  const [centerData, setCenterData] = useState<CenterData | null>(null);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCenterData = async () => {
-      if (!identifier) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-
-        let centerDoc;
-        let centerId: string;
-        let data: any;
-
-        // Detect if identifier is a username (slug) or ID
-        // Firebase IDs are usually 20+ alphanumeric chars. Usernames are lowercase + hyphens.
-        const isUsername = /^[a-z0-9-]+$/.test(identifier) && !identifier.match(/^[0-9a-zA-Z]{20,}$/);
-
-        if (isUsername) {
-          // Query by centerUsername
-          const q = query(
-            collection(db, "centers"),
-            where("centerUsername", "==", identifier),
-            where("status", "==", "active"),
-            limit(1)
-          );
-          const snapshot = await getDocs(q);
-
-          if (snapshot.empty) {
-            setError("عذراً، هذا المركز غير موجود.");
-            setLoading(false);
-            return;
-          }
-
-          centerDoc = snapshot.docs[0];
-          centerId = centerDoc.id;
-          data = centerDoc.data();
-        } else {
-          // Query by document ID (backward compatibility)
-          const docRef = doc(db, "centers", identifier);
-          centerDoc = await getDoc(docRef);
-
-          if (!centerDoc.exists()) {
-            setError("عذراً، هذا المركز غير موجود.");
-            setLoading(false);
-            return;
-          }
-
-          centerId = centerDoc.id;
-          data = centerDoc.data();
-        }
-
-        // Initialize center object with proper types
-        const center: CenterData = {
-          id: centerId,
-          name: data.name,
-          logo: data.logo,
-          description: data.description,
-          // Format location: Governorate - Area - Address
-          location: formatLocation(data.governorate, data.area, data.address),
-          governorate: data.governorate,
-          area: data.area,
-          address: data.address || data.location, // Fallback for old data
-          phone: data.phone,
-          stages: (data.stages || []).map(getStageLabel), // Localize stages
-          grades: data.grades || [],
-          subjects: data.subjects || [],
-          rating: data.rating || 0,
-          reviewCount: data.reviewCount || 0,
-          teacherCount: data.teacherCount || 0,
-          workingHours: data.workingHours,
-          openingTime: data.openingTime,
-          closingTime: data.closingTime,
-          social: data.social || {
-            facebook: data.facebook,
-            instagram: data.instagram,
-            whatsapp: data.whatsapp
-          }
-        };
-
-        setCenterData(center);
-
-        // 2. Fetch Teachers (Subcollection)
-        try {
-          // Debug log
-          console.log(`Fetching teachers for center: ${centerId}`);
-          const teachersSnapshot = await getDocs(collection(db, "centers", centerId, "teachers"));
-          const teachersList = teachersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Teacher));
-          console.log(`Fetched ${teachersList.length} teachers`);
-          setTeachers(teachersList);
-        } catch (subError) {
-          console.error("Error fetching teachers collection:", subError);
-          setTeachers([]);
-        }
-
-        // 3. Fetch Sessions
-        try {
-          console.log(`Fetching sessions for center: ${centerId}`);
-          const sessionsSnapshot = await getDocs(collection(db, "centers", centerId, "sessions"));
-          const sessionsList = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
-          console.log(`Fetched ${sessionsList.length} sessions`);
-          setSessions(sessionsList);
-        } catch (subError) {
-          console.error("Error fetching sessions collection:", subError);
-          setSessions([]);
-        }
-
-
-      } catch (err) {
-        console.error("Error fetching center:", err);
-        setError("حدث خطأ أثناء تحميل بيانات المركز.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCenterData();
-  }, [identifier]);
+  // استخدام الـ Hook المحسّن
+  const { center: centerData, teachers, sessions, loading, error } = useCenterDetails(identifier);
 
   if (loading) {
     return (
@@ -224,9 +44,9 @@ const CenterPage = () => {
   }
 
   const workingHoursDisplay = formatWorkingHoursDisplay(
-    centerData.openingTime,
-    centerData.closingTime,
-    centerData.workingHours
+    centerData?.openingTime,
+    centerData?.closingTime,
+    centerData?.workingHours || 'غير محدد'
   );
 
   return (
@@ -322,11 +142,20 @@ const CenterPage = () => {
 
             <TabsContent value="timetable" className="mt-8">
               {sessions.length > 0 ? (
-                <TimetableCalendar
-                  sessions={sessions}
-                  openingTime={centerData.openingTime}
-                  closingTime={centerData.closingTime}
-                />
+                <ErrorBoundary
+                  fallback={
+                    <div className="text-center py-12 text-destructive border rounded-xl bg-destructive/10">
+                      <AlertCircle className="h-12 w-12 mx-auto mb-3" />
+                      <p>حدث خطأ في عرض جدول الحصص. قد تكون بعض البيانات غير صحيحة.</p>
+                    </div>
+                  }
+                >
+                  <TimetableCalendar
+                    sessions={sessions}
+                    openingTime={centerData?.openingTime}
+                    closingTime={centerData?.closingTime}
+                  />
+                </ErrorBoundary>
               ) : (
                 <div className="text-center py-12 text-muted-foreground border rounded-xl bg-muted/10">
                   <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />

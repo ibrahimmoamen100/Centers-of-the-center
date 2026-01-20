@@ -25,9 +25,7 @@ const Header = () => {
           <Link to="/search" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
             البحث
           </Link>
-          <Link to="/centers" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
-            المراكز
-          </Link>
+
         </nav>
 
         {/* Desktop Actions */}

@@ -1,4 +1,5 @@
 // High school subjects organized by specialization
+// ✅ تم تحديث القيم لتطابق Firebase (استخدام Labels كـ IDs)
 export interface SubjectCategory {
   id: string;
   label: string;
@@ -15,39 +16,39 @@ export const subjectCategories: SubjectCategory[] = [
     id: "math_science",
     label: "مواد علمي رياضة",
     subjects: [
-      { id: "algebra", label: "الجبر" },
-      { id: "geometry", label: "الهندسة" },
-      { id: "dynamics", label: "الديناميكا" },
-      { id: "statics", label: "الاستاتيكا" },
+      { id: "الجبر", label: "الجبر" },
+      { id: "الهندسة", label: "الهندسة" },
+      { id: "الديناميكا", label: "الديناميكا" },
+      { id: "الاستاتيكا", label: "الاستاتيكا" },
     ],
   },
   {
     id: "bio_science",
     label: "مواد علمي علوم",
     subjects: [
-      { id: "biology", label: "الأحياء" },
-      { id: "geology", label: "الجيولوجيا" },
+      { id: "الأحياء", label: "الأحياء" },
+      { id: "الجيولوجيا", label: "الجيولوجيا" },
     ],
   },
   {
     id: "common",
     label: "مواد مشتركة",
     subjects: [
-      { id: "physics", label: "الفيزياء" },
-      { id: "chemistry", label: "الكيمياء" },
-      { id: "arabic", label: "اللغة العربية" },
-      { id: "english", label: "اللغة الإنجليزية" },
-      { id: "second_language", label: "اللغة الأجنبية الثانية" },
+      { id: "الفيزياء", label: "الفيزياء" },
+      { id: "الكيمياء", label: "الكيمياء" },
+      { id: "اللغة العربية", label: "اللغة العربية" },
+      { id: "اللغة الإنجليزية", label: "اللغة الإنجليزية" },
+      { id: "اللغة الأجنبية الثانية", label: "اللغة الأجنبية الثانية" },
     ],
   },
   {
     id: "literary",
     label: "مواد أدبي",
     subjects: [
-      { id: "history", label: "التاريخ" },
-      { id: "geography", label: "الجغرافيا" },
-      { id: "philosophy", label: "الفلسفة" },
-      { id: "psychology", label: "علم النفس" },
+      { id: "التاريخ", label: "التاريخ" },
+      { id: "الجغرافيا", label: "الجغرافيا" },
+      { id: "الفلسفة", label: "الفلسفة" },
+      { id: "علم النفس", label: "علم النفس" },
     ],
   },
 ];
@@ -55,7 +56,7 @@ export const subjectCategories: SubjectCategory[] = [
 // Flat list of all subjects for easy access
 export const allSubjects = subjectCategories.flatMap((cat) => cat.subjects);
 
-// Get subject label by id
+// Get subject label by id (now they're the same)
 export const getSubjectLabel = (id: string): string => {
   const subject = allSubjects.find((s) => s.id === id);
   return subject?.label || id;
