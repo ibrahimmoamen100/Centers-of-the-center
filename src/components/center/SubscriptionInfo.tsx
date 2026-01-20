@@ -1,4 +1,4 @@
-import { CreditCard, Calendar, Clock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { CreditCard, Calendar, Clock, AlertTriangle, CheckCircle, XCircle, MessageCircle, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,11 +53,24 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
   const statusInfo = getStatusInfo(subscription.status);
   const StatusIcon = statusInfo.icon;
 
+  // Formatting dates
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString('ar-EG', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Mock payment history logic based on subscription data if available
   const paymentHistory = [
-    { date: "2024-01-01", amount: 300, status: "paid" },
-    { date: "2023-12-01", amount: 300, status: "paid" },
-    { date: "2023-11-01", amount: 300, status: "paid" },
-    { date: "2023-10-01", amount: 300, status: "paid" },
+    {
+      date: formatDate(subscription.startDate),
+      amount: subscription.amount,
+      status: "paid",
+      method: "Vodafone Cash"
+    }
   ];
 
   return (
@@ -82,10 +95,13 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
                 </Badge>
               </div>
             </div>
-            
+
             {subscription.status !== "active" && (
-              <Button className="gap-2">
-                <CreditCard className="h-4 w-4" />
+              <Button
+                className="gap-2 bg-[#25D366] hover:bg-[#25D366]/90"
+                onClick={() => window.open('https://wa.me/201024911062', '_blank')}
+              >
+                <MessageCircle className="h-4 w-4" />
                 تجديد الاشتراك
               </Button>
             )}
@@ -99,20 +115,20 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
                 <p className="font-bold text-lg">{subscription.amount} ج.م / شهر</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">تاريخ البداية</p>
-                <p className="font-bold">{subscription.startDate}</p>
+                <p className="font-bold">{formatDate(subscription.startDate)}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <Clock className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">تاريخ الانتهاء</p>
-                <p className="font-bold">{subscription.endDate}</p>
+                <p className="font-bold">{formatDate(subscription.endDate)}</p>
               </div>
             </div>
           </div>
@@ -131,8 +147,8 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
               "صفحة عرض خاصة بالمركز",
               "إضافة المدرسين والحصص",
               "جدول حصص تفاعلي",
-              "10 عمليات تعديل شهريًا",
-              "الدعم الفني",
+              "20 عملية تعديل شهريًا",
+              "الدعم الفني المباشر",
             ].map((benefit, index) => (
               <div key={index} className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-600" />
@@ -158,7 +174,11 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
                   </div>
                   <div>
                     <p className="font-medium">دفعة اشتراك شهري</p>
-                    <p className="text-sm text-muted-foreground">{payment.date}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>{payment.date}</span>
+                      <span>•</span>
+                      <span>{payment.method}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="text-left">
@@ -167,25 +187,38 @@ export function SubscriptionInfo({ subscription }: SubscriptionInfoProps) {
                 </div>
               </div>
             ))}
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              يتم عرض آخر عملية دفع فقط حالياً.
+            </p>
           </div>
         </CardContent>
       </Card>
 
       {/* Contact for Payment */}
       <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-6 text-center">
-          <h3 className="text-lg font-bold mb-2">لتجديد الاشتراك</h3>
-          <p className="text-muted-foreground mb-4">
-            تواصل معنا عبر الواتساب أو قم بالتحويل البنكي
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="outline" className="gap-2">
-              واتساب: 01012345678
-            </Button>
-            <Button className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              طلب فاتورة
-            </Button>
+        <CardContent className="p-6">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-bold mb-2">لتجديد الاشتراك أو زيادة الباقة</h3>
+            <p className="text-muted-foreground">
+              يرجى تحويل مبلغ الحجز على فودافون كاش على الرقم التالي وارسال صورة التحويل لتأكيد الدفع
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 max-w-md mx-auto bg-card p-4 rounded-xl border shadow-sm">
+            <div className="flex items-center gap-3 px-4 py-2 bg-muted rounded-lg w-full justify-between">
+              <span className="font-bold text-lg ltr font-mono">01024911062</span>
+              <span className="text-sm font-medium">Vodafone Cash</span>
+            </div>
+
+            <div className="flex gap-3 w-full">
+              <Button
+                className="flex-1 gap-2 bg-[#25D366] hover:bg-[#25D366]/90"
+                onClick={() => window.open('https://wa.me/201024911062', '_blank')}
+              >
+                <MessageCircle className="h-4 w-4" />
+                أرسل التحويل واتساب
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

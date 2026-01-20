@@ -16,7 +16,7 @@ const CenterCard = ({ center }: CenterCardProps) => {
 
   return (
     <Link
-      to={`/center/${center.id}`}
+      to={`/center/${center.centerUsername || center.id}`}
       className="block group bg-card rounded-2xl border border-border overflow-hidden card-hover"
     >
       {/* Header with logo and rating */}

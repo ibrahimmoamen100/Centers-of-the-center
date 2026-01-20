@@ -10,18 +10,23 @@ export interface Center {
     governorate?: string;
     area?: string;
     stage: string;
+    grade?: string; // Added for grade filtering
     subjects: string[];
     rating?: number;
     reviewCount?: number;
     teacherCount?: number;
     description?: string;
     createdAt?: Timestamp | Date;
+    displayOrder?: number; // Added for admin-controlled sorting
+    status?: string; // To ensure we only show active centers
+    centerUsername?: string; // SEO-friendly URL identifier
 }
 
 export function useCenters(filters?: {
     governorate?: string;
     area?: string;
     stage?: string;
+    grade?: string; // Added grade filter
     subjects?: string[];
     featured?: boolean;
     limitCount?: number;
@@ -49,6 +54,10 @@ export function useCenters(filters?: {
                 if (filters?.stage) {
                     centersQuery = query(centersQuery, where("stage", "==", filters.stage));
                 }
+                if (filters?.grade) {
+                    // Grade can be stored as array or string in selectedGrades
+                    centersQuery = query(centersQuery, where("selectedGrades", "array-contains", filters.grade));
+                }
                 if (filters?.subjects && filters.subjects.length > 0) {
                     centersQuery = query(centersQuery, where("subjects", "array-contains-any", filters.subjects));
                 }
@@ -67,8 +76,17 @@ export function useCenters(filters?: {
                     ...doc.data()
                 } as Center));
 
-                // Client-side sorting to avoid "Missing Index" error
+                // Client-side sorting: First by displayOrder (admin control), then by createdAt
                 centersData.sort((a, b) => {
+                    // First priority: displayOrder (lower number = higher priority)
+                    const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+                    const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
+                    }
+
+                    // Second priority: createdAt (newer first)
                     const getMillis = (d: any) => d?.toMillis ? d.toMillis() : (d ? new Date(d).getTime() : 0);
                     return getMillis(b.createdAt) - getMillis(a.createdAt);
                 });
@@ -88,6 +106,7 @@ export function useCenters(filters?: {
         filters?.governorate,
         filters?.area,
         filters?.stage,
+        filters?.grade, // Added grade dependency
         JSON.stringify(filters?.subjects || []),
         filters?.featured,
         filters?.limitCount

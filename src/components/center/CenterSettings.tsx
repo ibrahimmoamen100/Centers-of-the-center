@@ -48,6 +48,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     centerName: "",
+    centerUsername: "", // Added for SEO-friendly URLs
     description: "",
     phone: "",
     whatsapp: "",
@@ -57,6 +58,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
     facebook: "",
     instagram: "",
     workingHours: "",
+    openingTime: "", // Added: e.g., "09:00"
+    closingTime: "", // Added: e.g., "22:00"
     selectedStages: [] as string[],
     selectedGrades: [] as string[],
     selectedSubjects: [] as string[],
@@ -66,6 +69,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
     if (centerData) {
       setFormData({
         centerName: centerData.name || "",
+        centerUsername: centerData.centerUsername || "",
         description: centerData.description || "",
         phone: centerData.phone || "",
         whatsapp: centerData.whatsapp || "",
@@ -75,6 +79,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
         facebook: centerData.facebook || "",
         instagram: centerData.instagram || "",
         workingHours: centerData.workingHours || "",
+        openingTime: centerData.openingTime || "",
+        closingTime: centerData.closingTime || "",
         selectedStages: centerData.stages || [],
         selectedGrades: centerData.grades || [],
         selectedSubjects: centerData.subjects || [],
@@ -166,9 +172,32 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
       return;
     }
 
+    // Validate centerUsername format (if provided)
+    if (formData.centerUsername) {
+      const usernameRegex = /^[a-z0-9-]+$/;
+      if (!usernameRegex.test(formData.centerUsername)) {
+        toast.error("اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام و (-) فقط");
+        return;
+      }
+    }
+
+    // Validate opening/closing times (if provided)
+    if (formData.openingTime && formData.closingTime) {
+      const opening = formData.openingTime.split(':').map(Number);
+      const closing = formData.closingTime.split(':').map(Number);
+      const openingMinutes = opening[0] * 60 + opening[1];
+      const closingMinutes = closing[0] * 60 + closing[1];
+
+      if (closingMinutes <= openingMinutes) {
+        toast.error("وقت الإغلاق يجب أن يكون بعد وقت الفتح");
+        return;
+      }
+    }
+
     try {
       await updateDoc(doc(db, "centers", centerData.id), {
         name: formData.centerName,
+        centerUsername: formData.centerUsername || null,
         description: formData.description,
         phone: formData.phone,
         whatsapp: formData.whatsapp,
@@ -178,6 +207,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
         facebook: formData.facebook,
         instagram: formData.instagram,
         workingHours: formData.workingHours,
+        openingTime: formData.openingTime || null,
+        closingTime: formData.closingTime || null,
         stages: formData.selectedStages,
         grades: formData.selectedGrades,
         subjects: formData.selectedSubjects,
@@ -254,6 +285,29 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                 onChange={(e) => setFormData({ ...formData, centerName: e.target.value })}
                 disabled={!canEdit}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>اسم المستخدم (Username) - اختياري</Label>
+              <Input
+                value={formData.centerUsername}
+                onChange={(e) => {
+                  const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                  setFormData({ ...formData, centerUsername: value });
+                }}
+                disabled={!canEdit}
+                placeholder="future-center"
+                dir="ltr"
+                className="text-left"
+              />
+              {formData.centerUsername && (
+                <p className="text-xs text-muted-foreground text-left" dir="ltr">
+                  📌 الرابط: /center/{formData.centerUsername}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                يُستخدم في رابط صفحة المركز (أحرف إنجليزية صغيرة، أرقام، و - فقط)
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -382,6 +436,36 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
                 disabled={!canEdit}
                 placeholder="مثال: يومياً من 10 صباحاً حتى 10 مساءً"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>وقت الفتح - اختياري</Label>
+                <Input
+                  type="time"
+                  value={formData.openingTime}
+                  onChange={(e) => setFormData({ ...formData, openingTime: e.target.value })}
+                  disabled={!canEdit}
+                  placeholder="09:00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  يُستخدم لتحديد نطاق جدول المواعيد
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>وقت الإغلاق - اختياري</Label>
+                <Input
+                  type="time"
+                  value={formData.closingTime}
+                  onChange={(e) => setFormData({ ...formData, closingTime: e.target.value })}
+                  disabled={!canEdit}
+                  placeholder="22:00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  يجب أن يكون بعد وقت الفتح
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -25,6 +25,7 @@ const Search = () => {
     governorate: filters.governorate,
     area: filters.area,
     stage: filters.stage,
+    grade: filters.grade, // Added grade filter
     subjects: filters.subjects,
   });
 
@@ -34,15 +35,33 @@ const Search = () => {
     // You could filter centers based on searchQuery
   };
 
-  // Filter centers based on search query
+  // Enhanced filter: search in center name, subjects, location, and teacher names
+  // Note: Teacher search is limited as teachers are in subcollection
+  // For full teacher search, you'd need to fetch teachers separately
   const filteredCenters = searchQuery
     ? centers.filter(
-      (center) =>
-        center.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        center.subjects.some((subject) =>
-          subject.toLowerCase().includes(searchQuery.toLowerCase())
-        ) ||
-        center.location.toLowerCase().includes(searchQuery.toLowerCase())
+      (center) => {
+        const query = searchQuery.toLowerCase();
+
+        // Search in center name
+        if (center.name.toLowerCase().includes(query)) return true;
+
+        // Search in subjects
+        if (center.subjects.some((subject) =>
+          subject.toLowerCase().includes(query)
+        )) return true;
+
+        // Search in location
+        if (center.location?.toLowerCase().includes(query)) return true;
+
+        // Search in governorate
+        if (center.governorate?.toLowerCase().includes(query)) return true;
+
+        // Search in area
+        if (center.area?.toLowerCase().includes(query)) return true;
+
+        return false;
+      }
     )
     : centers;
 

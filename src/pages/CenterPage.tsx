@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { MapPin, Phone, Clock, Star, Users, Facebook, Instagram, MessageCircle, Share2, Loader2, AlertCircle } from "lucide-react";
 import Header from "@/components/layout/Header";
@@ -10,26 +10,39 @@ import TeacherCard from "@/components/centers/TeacherCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  getStageLabel,
+  formatLocation,
+  formatWorkingHoursDisplay
+} from "@/lib/centerUtils";
 
-// Mock data is removed. Interfaces defined for type safety.
+// Interfaces defined for type safety.
 
 interface Teacher {
   id: string;
   name: string;
-  photo: string;
-  subjects: string[];
-  experience: string;
-  rating: number;
+  photo?: string;
+  image?: string;
+  subjects?: string[];
+  subject?: string;
+  experience?: string;
+  rating?: number;
+  bio?: string;
 }
 
 interface Session {
   id: string;
   subject: string;
-  teacher: string;
-  time: string;
-  duration: number;
-  day: number;
-  color: string;
+  teacher?: string;
+  teacherName?: string;
+  time?: string;
+  sessionTime?: string;
+  duration?: number;
+  day?: number | string;
+  color?: string;
+  type?: 'recurring' | 'single';
+  startDateTime?: string;
+  endDateTime?: string;
 }
 
 interface CenterData {
@@ -38,15 +51,20 @@ interface CenterData {
   logo?: string | null;
   description?: string;
   location: string;
+  governorate?: string;
+  area?: string;
   address: string;
   phone: string;
-  stages: string[]; // Array of strings e.g. ["preparatory", "secondary"]
-  grades: string[]; // Array of strings
+  stages: string[];
+  grades: string[];
   subjects: string[];
   rating: number;
   reviewCount: number;
   teacherCount: number;
   workingHours?: string;
+  openingTime?: string;
+  closingTime?: string;
+  centerUsername?: string;
   social?: {
     facebook?: string;
     instagram?: string;
@@ -55,7 +73,7 @@ interface CenterData {
 }
 
 const CenterPage = () => {
-  const { id } = useParams();
+  const { id: identifier } = useParams();
   const [centerData, setCenterData] = useState<CenterData | null>(null);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -64,72 +82,109 @@ const CenterPage = () => {
 
   useEffect(() => {
     const fetchCenterData = async () => {
-      if (!id) return;
+      if (!identifier) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        // 1. Fetch Center Document
-        const centerDoc = await getDoc(doc(db, "centers", id));
+        let centerDoc;
+        let centerId: string;
+        let data: any;
 
-        if (!centerDoc.exists()) {
-          setError("عذراً، هذا المركز غير موجود.");
-          setLoading(false);
-          return;
+        // Detect if identifier is a username (slug) or ID
+        // Firebase IDs are usually 20+ alphanumeric chars. Usernames are lowercase + hyphens.
+        const isUsername = /^[a-z0-9-]+$/.test(identifier) && !identifier.match(/^[0-9a-zA-Z]{20,}$/);
+
+        if (isUsername) {
+          // Query by centerUsername
+          const q = query(
+            collection(db, "centers"),
+            where("centerUsername", "==", identifier),
+            where("status", "==", "active"),
+            limit(1)
+          );
+          const snapshot = await getDocs(q);
+
+          if (snapshot.empty) {
+            setError("عذراً، هذا المركز غير موجود.");
+            setLoading(false);
+            return;
+          }
+
+          centerDoc = snapshot.docs[0];
+          centerId = centerDoc.id;
+          data = centerDoc.data();
+        } else {
+          // Query by document ID (backward compatibility)
+          const docRef = doc(db, "centers", identifier);
+          centerDoc = await getDoc(docRef);
+
+          if (!centerDoc.exists()) {
+            setError("عذراً، هذا المركز غير موجود.");
+            setLoading(false);
+            return;
+          }
+
+          centerId = centerDoc.id;
+          data = centerDoc.data();
         }
 
-        const data = centerDoc.data();
-
-        // Normalize stages: could be string "prep - sec" or array
-        let stagesList: string[] = [];
-        if (data.selectedStages && Array.isArray(data.selectedStages)) {
-          stagesList = data.selectedStages;
-        } else if (data.stage && typeof data.stage === 'string') {
-          stagesList = data.stage.split(' - ');
-        }
-
-        // Construct safe object
+        // Initialize center object with proper types
         const center: CenterData = {
-          id: centerDoc.id,
-          name: data.name || "مركز غير مسمى",
-          logo: data.logo || null,
-          description: data.description || "لا يوجد وصف متاح لهذا المركز حالياً.",
-          location: data.location || data.address || "غير محدد",
-          address: data.address || "",
-          phone: data.phone || "",
-          stages: stagesList,
-          grades: data.selectedGrades || [],
+          id: centerId,
+          name: data.name,
+          logo: data.logo,
+          description: data.description,
+          // Format location: Governorate - Area - Address
+          location: formatLocation(data.governorate, data.area, data.address),
+          governorate: data.governorate,
+          area: data.area,
+          address: data.address || data.location, // Fallback for old data
+          phone: data.phone,
+          stages: (data.stages || []).map(getStageLabel), // Localize stages
+          grades: data.grades || [],
           subjects: data.subjects || [],
           rating: data.rating || 0,
           reviewCount: data.reviewCount || 0,
           teacherCount: data.teacherCount || 0,
-          workingHours: data.workingHours || "غير محدد",
-          social: data.social || {},
+          workingHours: data.workingHours,
+          openingTime: data.openingTime,
+          closingTime: data.closingTime,
+          social: data.social || {
+            facebook: data.facebook,
+            instagram: data.instagram,
+            whatsapp: data.whatsapp
+          }
         };
 
         setCenterData(center);
 
-        // 2. Fetch Teachers (Subcollection or separate query)
-        // Note: Currently 'teachers' collection might not exist, creating empty array safely.
+        // 2. Fetch Teachers (Subcollection)
         try {
-          const teachersSnapshot = await getDocs(collection(db, "centers", id, "teachers"));
+          // Debug log
+          console.log(`Fetching teachers for center: ${centerId}`);
+          const teachersSnapshot = await getDocs(collection(db, "centers", centerId, "teachers"));
           const teachersList = teachersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Teacher));
+          console.log(`Fetched ${teachersList.length} teachers`);
           setTeachers(teachersList);
         } catch (subError) {
-          console.log("No teachers collection found (safe ignore):", subError);
+          console.error("Error fetching teachers collection:", subError);
           setTeachers([]);
         }
 
         // 3. Fetch Sessions
         try {
-          const sessionsSnapshot = await getDocs(collection(db, "centers", id, "sessions"));
+          console.log(`Fetching sessions for center: ${centerId}`);
+          const sessionsSnapshot = await getDocs(collection(db, "centers", centerId, "sessions"));
           const sessionsList = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Session));
+          console.log(`Fetched ${sessionsList.length} sessions`);
           setSessions(sessionsList);
         } catch (subError) {
-          console.log("No sessions collection found (safe ignore):", subError);
+          console.error("Error fetching sessions collection:", subError);
           setSessions([]);
         }
+
 
       } catch (err) {
         console.error("Error fetching center:", err);
@@ -140,7 +195,7 @@ const CenterPage = () => {
     };
 
     fetchCenterData();
-  }, [id]);
+  }, [identifier]);
 
   if (loading) {
     return (
@@ -167,6 +222,12 @@ const CenterPage = () => {
       </div>
     );
   }
+
+  const workingHoursDisplay = formatWorkingHoursDisplay(
+    centerData.openingTime,
+    centerData.closingTime,
+    centerData.workingHours
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -213,7 +274,7 @@ const CenterPage = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    <span>{centerData.workingHours}</span>
+                    <span>{workingHoursDisplay}</span>
                   </div>
                 </div>
 
@@ -261,7 +322,11 @@ const CenterPage = () => {
 
             <TabsContent value="timetable" className="mt-8">
               {sessions.length > 0 ? (
-                <TimetableCalendar sessions={sessions} />
+                <TimetableCalendar
+                  sessions={sessions}
+                  openingTime={centerData.openingTime}
+                  closingTime={centerData.closingTime}
+                />
               ) : (
                 <div className="text-center py-12 text-muted-foreground border rounded-xl bg-muted/10">
                   <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />

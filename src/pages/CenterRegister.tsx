@@ -1,17 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
-import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDocs, query, where, collection, serverTimestamp, limit } from "firebase/firestore";
 import { toast } from "sonner";
-import { Eye, EyeOff, Upload, UserPlus } from "lucide-react";
+import { Eye, EyeOff, UserPlus, Link as LinkIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { governorates, areasByGovernorate, type Governorate } from "@/data/locations";
 
 const stages = [
   { id: "preparatory", label: "المرحلة الإعدادية" },
@@ -46,28 +54,56 @@ export default function CenterRegister() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     centerName: "",
+    centerUsername: "",
     email: "",
     password: "",
     confirmPassword: "",
     phone: "",
-    address: "",
+    governorate: "",
+    area: "",
+    logoUrl: "",
     selectedStages: [] as string[],
     selectedGrades: [] as string[],
   });
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+
+  // Debounce username check
+  useEffect(() => {
+    const checkUsername = async () => {
+      const username = formData.centerUsername;
+      if (!username) {
+        setUsernameStatus('idle');
+        return;
+      }
+
+      const isValid = /^[a-z0-9-]+$/.test(username);
+      if (!isValid) {
+        setUsernameStatus('invalid');
+        return;
+      }
+
+      setUsernameStatus('checking');
+      try {
+        const q = query(collection(db, "centers"), where("centerUsername", "==", username), limit(1));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          setUsernameStatus('available');
+        } else {
+          setUsernameStatus('taken');
+        }
+      } catch (error) {
+        console.error("Error checking username:", error);
+        setUsernameStatus('idle');
+      }
+    };
+
+    const timeoutId = setTimeout(checkUsername, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.centerUsername]);
 
   const handleStageChange = (stageId: string, checked: boolean) => {
     if (checked) {
@@ -100,6 +136,11 @@ export default function CenterRegister() {
     }
   };
 
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toLowerCase().replace(/\s+/g, '-');
+    setFormData({ ...formData, centerUsername: value });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -113,9 +154,24 @@ export default function CenterRegister() {
       return;
     }
 
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      toast.error("يرجى اختيار اسم مستخدم صالح وغير مستخدم");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      console.log("Starting registration process (v2 - Sanitized)...");
+      console.log("Starting registration process...");
+
+      // Final check for username uniqueness just in case
+      const q = query(collection(db, "centers"), where("centerUsername", "==", formData.centerUsername), limit(1));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        toast.error("اسم المستخدم تم حجزه للتو، يرجى اختيار اسم آخر");
+        setIsLoading(false);
+        return;
+      }
+
       // 1. Create Firebase Authentication User
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -136,8 +192,15 @@ export default function CenterRegister() {
       const centerData = {
         // Display fields
         name: formData.centerName,
-        logo: logoPreview ?? null,
-        location: formData.address,
+        centerUsername: formData.centerUsername,
+        logo: formData.logoUrl || null,
+
+        // Location fields
+        governorate: formData.governorate,
+        area: formData.area,
+        location: `${formData.governorate} - ${formData.area}`, // For backward compatibility/display
+        address: `${formData.governorate} - ${formData.area}`, // Fallback
+
         stage: stageLabels || "غير محدد",
         subjects: [],
         rating: 0,
@@ -149,7 +212,6 @@ export default function CenterRegister() {
         email: formData.email,
         adminUid: uid,
         phone: formData.phone,
-        address: formData.address,
         selectedStages: formData.selectedStages,
         selectedGrades: formData.selectedGrades,
 
@@ -168,6 +230,10 @@ export default function CenterRegister() {
         },
         operationsUsed: 0,
         operationsLimit: 10,
+
+        // Default Opening/Closing times (can be edited later)
+        openingTime: "09:00",
+        closingTime: "22:00"
       };
 
       // Sanitize data before sending to Firestore
@@ -238,39 +304,71 @@ export default function CenterRegister() {
 
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-6">
-                {/* Logo Upload */}
-                <div className="space-y-2">
-                  <Label>شعار المركز</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-24 h-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted">
-                      {logoPreview ? (
-                        <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+
+                {/* Logo URL */}
+                <div className="space-y-3">
+                  <Label htmlFor="logoUrl">رابط شعار المركز (اختياري)</Label>
+                  <div className="flex gap-4 items-start">
+                    <div className="w-20 h-20 rounded-lg border flex items-center justify-center bg-muted overflow-hidden flex-shrink-0">
+                      {formData.logoUrl ? (
+                        <img src={formData.logoUrl} alt="Logo preview" className="w-full h-full object-cover" onError={(e) => e.currentTarget.style.display = 'none'} />
                       ) : (
-                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <LinkIcon className="h-8 w-8 text-muted-foreground opacity-50" />
                       )}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 space-y-2">
                       <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoChange}
-                        className="cursor-pointer"
+                        id="logoUrl"
+                        type="url"
+                        placeholder="https://example.com/logo.png"
+                        value={formData.logoUrl}
+                        onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                        className="text-left ltr"
+                        dir="ltr"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG حتى 2MB</p>
+                      <p className="text-xs text-muted-foreground">أدخل رابط مباشر للصورة من آي كلاود أو جوجل درايف أو أي خدمة استضافة.</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Center Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="centerName">اسم المركز *</Label>
-                  <Input
-                    id="centerName"
-                    placeholder="مثال: مركز النور التعليمي"
-                    value={formData.centerName}
-                    onChange={(e) => setFormData({ ...formData, centerName: e.target.value })}
-                    required
-                  />
+                {/* Center Name & Username */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="centerName">اسم المركز *</Label>
+                    <Input
+                      id="centerName"
+                      placeholder="مثال: مركز النور التعليمي"
+                      value={formData.centerName}
+                      onChange={(e) => setFormData({ ...formData, centerName: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="centerUsername" className="flex items-center gap-2">
+                      اسم المستخدم (Rابط المركز) *
+                      {usernameStatus === 'checking' && <span className="text-xs text-muted-foreground animate-pulse">جاري التحقق...</span>}
+                      {usernameStatus === 'available' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      {usernameStatus === 'taken' && <AlertCircle className="h-4 w-4 text-destructive" />}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="centerUsername"
+                        placeholder="future-center"
+                        value={formData.centerUsername}
+                        onChange={handleUsernameChange}
+                        className={`text-left ltr ${usernameStatus === 'taken' ? 'border-destructive' : usernameStatus === 'available' ? 'border-green-500' : ''}`}
+                        dir="ltr"
+                        required
+                        pattern="^[a-z0-9-]+$"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1 text-left ltr">
+                        /center/{formData.centerUsername || 'username'}
+                      </p>
+                    </div>
+                    {usernameStatus === 'taken' && <p className="text-xs text-destructive">اسم المستخدم هذا محجوز مسبقاً</p>}
+                    {usernameStatus === 'invalid' && <p className="text-xs text-destructive">مسموح فقط بالأحرف الإنجليزية الصغيرة والأرقام والشرطة (-)</p>}
+                  </div>
                 </div>
 
                 {/* Email */}
@@ -323,7 +421,7 @@ export default function CenterRegister() {
                   </div>
                 </div>
 
-                {/* Phone & Address */}
+                {/* Phone & Location */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">رقم الهاتف *</Label>
@@ -337,15 +435,47 @@ export default function CenterRegister() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address">العنوان *</Label>
-                    <Input
-                      id="address"
-                      placeholder="المحافظة - المنطقة"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label>المحافظة *</Label>
+                      <Select
+                        value={formData.governorate}
+                        onValueChange={(val) => setFormData({ ...formData, governorate: val, area: "" })}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {governorates.map((gov) => (
+                            <SelectItem key={gov} value={gov}>
+                              {gov}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>المنطقة *</Label>
+                      <Select
+                        value={formData.area}
+                        onValueChange={(val) => setFormData({ ...formData, area: val })}
+                        disabled={!formData.governorate}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {formData.governorate && areasByGovernorate[formData.governorate as Governorate]?.map((area) => (
+                            <SelectItem key={area} value={area}>
+                              {area}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -389,7 +519,7 @@ export default function CenterRegister() {
               </CardContent>
 
               <CardFooter className="flex flex-col gap-4">
-                <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+                <Button type="submit" className="w-full gap-2" disabled={isLoading || (formData.centerUsername && usernameStatus === 'taken')}>
                   <UserPlus className="h-4 w-4" />
                   {isLoading ? "جاري الإنشاء..." : "إنشاء الحساب"}
                 </Button>

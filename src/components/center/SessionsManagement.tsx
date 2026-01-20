@@ -254,38 +254,91 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
   const handleEdit = async () => {
     if (!canEdit || !editingSession) return;
     try {
-      // Just update the single session document being edited
-      const dayName = formData.type === 'single' && formData.singleDate
-        ? new Date(formData.singleDate).toLocaleDateString('ar-EG', { weekday: 'long' })
-        : formData.day; // Preserve existing day or update if needed? For recurring, user might change day.
-
-      // Handle single session day recalc or recurring day from form
-      let finalDay = dayName;
+      // Validation for recurring
       if (formData.type === 'recurring') {
-        // In edit mode for recurring, we only edit ONE session doc, so we look at formData.day/time
-        // But wait, the form uses selectedDays for Add. For Edit, let's just use simple single-day inputs for simplicity 
-        // OR adapt the form to show just one day selector if editing.
-        // To keep it clean, I will skip using selectedDays for EDITING and just use formData.day
-        finalDay = formData.day;
+        if (formData.selectedDays.length === 0) {
+          toast.error("يرجى اختيار يوم واحد على الأقل");
+          return;
+        }
+        if (!formData.startDate) {
+          toast.error("يرجى تحديد تاريخ البداية");
+          return;
+        }
       }
 
-      const updateData = {
+      const baseData = {
         subject: formData.subject,
         teacherId: formData.teacherId,
         teacherName: formData.teacherName,
         teacherImage: formData.teacherImage,
         grade: formData.grade,
         type: formData.type,
-        day: finalDay,
-        startDateTime: formData.type === 'single' ? formData.singleDate : formData.startDate,
-        endDateTime: formData.type === 'single' ? (formData.singleEndDate || "") : (formData.endDate || ""),
-        sessionTime: formData.type === 'recurring' ? formData.sessionTime : null
       };
 
-      const sessionRef = doc(db, "centers", centerId, "sessions", editingSession.id);
-      await updateDoc(sessionRef, updateData);
+      if (formData.type === 'single') {
+        // Existing Single Session Logic
+        const updateData = {
+          ...baseData,
+          day: formData.type === 'single' && formData.singleDate
+            ? new Date(formData.singleDate).toLocaleDateString('ar-EG', { weekday: 'long' })
+            : formData.day,
+          startDateTime: formData.singleDate,
+          endDateTime: formData.singleEndDate || "",
+          sessionTime: null
+        };
 
-      setSessions(sessions.map(s => s.id === editingSession.id ? { ...s, ...updateData, id: s.id } : s));
+        await updateDoc(doc(db, "centers", centerId, "sessions", editingSession.id), updateData);
+        setSessions(sessions.map(s => s.id === editingSession.id ? { ...s, ...updateData, id: s.id } : s));
+
+      } else {
+        // Recurring Logic (Multi-day Support)
+        const days = formData.selectedDays;
+        const originalDay = editingSession.day;
+
+        // 1. Determine which day claims the existing ID (Priority: Original Day)
+        let preservationDay = days.includes(originalDay || "") ? originalDay : days[0];
+
+        // 2. Prepare Shared Data
+        const sharedRecurringData = {
+          ...baseData,
+          startDateTime: formData.startDate,
+          endDateTime: formData.endDate || "",
+        };
+
+        const newSessionsList: Session[] = [];
+
+        // 3. Loop through days
+        for (const d of days) {
+          const time = formData.dayTimes[d];
+          if (!time) {
+            toast.error(`يرجى تحديد الوقت ليوم ${d}`);
+            return;
+          }
+
+          const sessionPayload = {
+            ...sharedRecurringData,
+            day: d,
+            sessionTime: time
+          };
+
+          if (d === preservationDay) {
+            // Update the EXISTING document
+            await updateDoc(doc(db, "centers", centerId, "sessions", editingSession.id), sessionPayload);
+            // Update local state for this one immediately? We'll refresh list later or manual map.
+            setSessions(prev => prev.map(s => s.id === editingSession.id ? { ...s, ...sessionPayload, id: s.id } : s));
+          } else {
+            // Create NEW document for this extra day
+            const docRef = await addDoc(collection(db, "centers", centerId, "sessions"), sessionPayload);
+            newSessionsList.push({ id: docRef.id, ...sessionPayload } as Session);
+          }
+        }
+
+        // Update local state with new additions
+        if (newSessionsList.length > 0) {
+          setSessions(prev => [...prev, ...newSessionsList]);
+        }
+      }
+
       setEditingSession(null);
       setIsEditOpen(false);
       updateOperations();
@@ -515,47 +568,27 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
 
           <div className="space-y-2">
             <Label className="mb-2 block">أيام التكرار</Label>
-            {isEdit ? (
-              /* Single Day Edit Mode */
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>اليوم</Label>
-                  <Select value={formData.day} onValueChange={(val) => setFormData({ ...formData, day: val })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>الساعة</Label>
-                  <Input type="time" value={formData.sessionTime} onChange={(e) => setFormData({ ...formData, sessionTime: e.target.value })} />
-                </div>
-              </div>
-            ) : (
-              /* Multi-Day Add Mode */
-              <div className="grid grid-cols-1 gap-2 border p-3 rounded-lg max-h-[200px] overflow-y-auto">
-                {days.map((day) => (
-                  <div key={day} className="flex items-center justify-between p-2 hover:bg-muted rounded text-sm">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={formData.selectedDays.includes(day)}
-                        onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
-                      />
-                      <span>{day}</span>
-                    </div>
-                    {formData.selectedDays.includes(day) && (
-                      <Input
-                        type="time"
-                        className="w-32 h-8"
-                        value={formData.dayTimes[day] || ""}
-                        onChange={(e) => handleDayTimeChange(day, e.target.value)}
-                      />
-                    )}
+            <div className="grid grid-cols-1 gap-2 border p-3 rounded-lg max-h-[200px] overflow-y-auto">
+              {days.map((day) => (
+                <div key={day} className="flex items-center justify-between p-2 hover:bg-muted rounded text-sm">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={formData.selectedDays.includes(day)}
+                      onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
+                    />
+                    <span>{day}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  {formData.selectedDays.includes(day) && (
+                    <Input
+                      type="time"
+                      className="w-32 h-8"
+                      value={formData.dayTimes[day] || ""}
+                      onChange={(e) => handleDayTimeChange(day, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

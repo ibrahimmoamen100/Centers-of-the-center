@@ -1,23 +1,42 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getHourLabel12Arabic } from "@/lib/dateUtils";
 
 interface Session {
   id: string;
   subject: string;
-  teacher: string;
-  time: string;
-  duration: number; // in minutes
-  day: number; // 0-6 (Sat-Fri)
-  color: string;
+  teacher?: string; // Made optional for compatibility
+  teacherName?: string; // Added for new structure
+  teacherId?: string; // Added for new structure
+  time?: string; // Legacy field - optional
+  sessionTime?: string; // New field for recurring sessions
+  duration?: number; // in minutes - optional
+  day?: number | string; // 0-6 (Sat-Fri) or day name in Arabic
+  color?: string; // Optional
+  type?: 'recurring' | 'single'; // Session type
+  startDateTime?: string; // ISO string
+  endDateTime?: string; // ISO string
+  grade?: string; // Added for new structure
 }
 
 interface TimetableCalendarProps {
   sessions: Session[];
+  openingTime?: string;
+  closingTime?: string;
 }
 
 const days = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
-const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8 AM to 7 PM
+const dayNameToIndex: Record<string, number> = {
+  "السبت": 0,
+  "الأحد": 1,
+  "الإثنين": 2,
+  "الاثنين": 2, // Alternative spelling
+  "الثلاثاء": 3,
+  "الأربعاء": 4,
+  "الخميس": 5,
+  "الجمعة": 6
+};
 
 const subjectColors: Record<string, string> = {
   "رياضيات": "bg-calendar-math",
@@ -30,14 +49,87 @@ const subjectColors: Record<string, string> = {
   "تاريخ": "bg-calendar-history",
 };
 
-const TimetableCalendar = ({ sessions }: TimetableCalendarProps) => {
+const TimetableCalendar = ({ sessions, openingTime, closingTime }: TimetableCalendarProps) => {
   const [currentWeek, setCurrentWeek] = useState(0);
 
+  // Determine start/end hours
+  const { startHour, endHour, hours } = useMemo(() => {
+    let start = 8;
+    let end = 20;
+
+    if (openingTime) {
+      const [h] = openingTime.split(':').map(Number);
+      if (!isNaN(h)) start = h;
+    }
+
+    if (closingTime) {
+      const [h] = closingTime.split(':').map(Number);
+      if (!isNaN(h)) end = h + 1; // Add 1 to show the closing hour slot
+    }
+
+    // Ensure valid range
+    if (end <= start) end = start + 12;
+
+    const hoursArray = Array.from({ length: end - start }, (_, i) => i + start);
+    return { startHour: start, endHour: end, hours: hoursArray };
+  }, [openingTime, closingTime]);
+
   const getSessionStyle = (session: Session) => {
-    const startHour = parseInt(session.time.split(":")[0]);
-    const startMinute = parseInt(session.time.split(":")[1]);
-    const top = ((startHour - 8) * 60 + startMinute) * (64 / 60); // 64px per hour
-    const height = session.duration * (64 / 60);
+    // Determine the time string to use
+    let timeString: string | undefined;
+
+    if (session.type === 'recurring') {
+      // Recurring session uses sessionTime
+      timeString = session.sessionTime;
+    } else if (session.type === 'single') {
+      // Single session uses startDateTime - extract time from ISO string
+      if (session.startDateTime) {
+        try {
+          const date = new Date(session.startDateTime);
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          timeString = `${hours}:${minutes}`;
+        } catch (e) {
+          console.warn('Invalid startDateTime:', session.startDateTime);
+        }
+      }
+    } else {
+      // Legacy format
+      timeString = session.time;
+    }
+
+    // Validate that time exists and is in correct format
+    if (!timeString || typeof timeString !== 'string' || !timeString.includes(':')) {
+      console.warn('Invalid session time format:', session);
+      return {
+        top: '0px',
+        height: '60px',
+      };
+    }
+
+    const timeParts = timeString.split(":");
+    if (timeParts.length < 2) {
+      console.warn('Invalid time format:', timeString);
+      return {
+        top: '0px',
+        height: '60px',
+      };
+    }
+
+    const sessionStartHour = parseInt(timeParts[0]);
+    const startMinute = parseInt(timeParts[1]);
+
+    // Validate parsed numbers
+    if (isNaN(sessionStartHour) || isNaN(startMinute)) {
+      console.warn('Invalid hour/minute values:', timeString);
+      return {
+        top: '0px',
+        height: '60px',
+      };
+    }
+
+    const top = ((sessionStartHour - startHour) * 60 + startMinute) * (64 / 60); // 64px per hour
+    const height = (session.duration || 60) * (64 / 60); // Default to 60 minutes if duration is missing
 
     return {
       top: `${top}px`,
@@ -51,23 +143,10 @@ const TimetableCalendar = ({ sessions }: TimetableCalendarProps) => {
       <div className="flex items-center justify-between p-4 border-b border-border bg-muted/30">
         <h3 className="font-bold text-lg text-foreground">جدول الحصص الأسبوعي</h3>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentWeek(currentWeek - 1)}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
+          {/* Week navigation removed for simplicity/focus on weekly view */}
           <span className="text-sm font-medium text-muted-foreground px-2">
             الأسبوع الحالي
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentWeek(currentWeek + 1)}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 
@@ -94,8 +173,8 @@ const TimetableCalendar = ({ sessions }: TimetableCalendarProps) => {
             {/* Hour Lines */}
             {hours.map((hour) => (
               <div key={hour} className="grid grid-cols-8 h-16 border-b border-border/50">
-                <div className="p-2 text-xs text-muted-foreground text-center bg-muted/20">
-                  {hour}:00
+                <div className="p-2 text-xs text-muted-foreground text-center bg-muted/20 flex items-center justify-center">
+                  {getHourLabel12Arabic(hour)}
                 </div>
                 {days.map((day, dayIndex) => (
                   <div
@@ -111,19 +190,46 @@ const TimetableCalendar = ({ sessions }: TimetableCalendarProps) => {
               const style = getSessionStyle(session);
               const colorClass = subjectColors[session.subject] || "bg-primary";
 
+              // Convert day to index (handle both number and string)
+              let dayIndex: number;
+              if (typeof session.day === 'number') {
+                dayIndex = session.day;
+              } else if (typeof session.day === 'string') {
+                dayIndex = dayNameToIndex[session.day] ?? 0;
+              } else {
+                console.warn('Invalid day value:', session);
+                return null; // Skip invalid sessions
+              }
+
+              // Get teacher name (support both old and new structure)
+              const teacherName = session.teacherName || session.teacher || '';
+
+              // Get time display (prefer calculated from style, fallback to raw data)
+              let timeDisplay = session.sessionTime || session.time || '';
+              if (session.type === 'single' && session.startDateTime) {
+                try {
+                  const date = new Date(session.startDateTime);
+                  const hours = date.getHours().toString().padStart(2, '0');
+                  const minutes = date.getMinutes().toString().padStart(2, '0');
+                  timeDisplay = `${hours}:${minutes}`;
+                } catch (e) {
+                  // Keep existing timeDisplay
+                }
+              }
+
               return (
                 <div
                   key={session.id}
                   className={`absolute right-0 mx-1 rounded-lg ${colorClass} text-white p-2 shadow-md cursor-pointer hover:shadow-lg transition-shadow overflow-hidden`}
                   style={{
                     ...style,
-                    right: `calc(${(session.day + 1) * 12.5}% + 4px)`,
+                    right: `calc(${(dayIndex + 1) * 12.5}% + 4px)`,
                     width: "calc(12.5% - 8px)",
                   }}
                 >
                   <div className="text-xs font-bold truncate">{session.subject}</div>
-                  <div className="text-xs opacity-90 truncate">{session.teacher}</div>
-                  <div className="text-xs opacity-75">{session.time}</div>
+                  {teacherName && <div className="text-xs opacity-90 truncate">{teacherName}</div>}
+                  {timeDisplay && <div className="text-xs opacity-75">{timeDisplay}</div>}
                 </div>
               );
             })}
