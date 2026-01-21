@@ -81,7 +81,6 @@ const formatTime12Arabic = (hour: number, minute: number = 0): string => {
 };
 
 const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }: TimetableCalendarProps) => {
-  const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
   // Helper to get teacher image
@@ -109,6 +108,10 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
     });
     return Array.from(gradesSet).sort();
   }, [sessions]);
+
+  // ... (date calculation logic remains the same)
+  // I will skip providing the full date calculation block to save tokens if possible, but replace_file_content needs contiguous block.
+  // Let me target the specific parts.
 
   const { minDate, maxDate } = useMemo(() => {
     if (sessions.length === 0) {
@@ -197,9 +200,7 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
 
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
-      if (selectedGrade !== "all" && session.grade !== selectedGrade) {
-        return false;
-      }
+      // Removed grade filtering logic
 
       if (session.type === 'recurring') {
         if (session.startDateTime && session.endDateTime) {
@@ -218,7 +219,7 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
 
       return true;
     });
-  }, [sessions, currentWeek, selectedGrade, weekStart, weekEnd]);
+  }, [sessions, currentWeek, weekStart, weekEnd]);
 
   const { startHour, endHour, hours } = useMemo(() => {
     let start = 8;
@@ -407,22 +408,6 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-            {availableGrades.length > 0 && (
-              <div className="flex items-center gap-2 flex-1 sm:flex-initial">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="كل الصفوف" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل الصفوف</SelectItem>
-                    {availableGrades.map(grade => (
-                      <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
               <Button

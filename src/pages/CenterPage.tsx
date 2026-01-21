@@ -44,6 +44,24 @@ const CenterPage = () => {
     }
   }, [centerData, STORAGE_KEY]);
 
+  // استخراج الصفوف التي تحتوي على حصص فقط
+  const activeGrades = useMemo(() => {
+    if (!sessions || sessions.length === 0) return [];
+
+    // استخراج جميع الصفوف من الحصص
+    const gradesWithSessions = new Set<string>();
+    sessions.forEach(s => {
+      if (s.grade) gradesWithSessions.add(s.grade);
+    });
+
+    // استخدام ترتيب الصفوف من بيانات المركز إذا وجد، وإلا ترتيب أبجدي
+    if (centerData?.grades && centerData.grades.length > 0) {
+      return centerData.grades.filter(g => gradesWithSessions.has(g));
+    }
+
+    return Array.from(gradesWithSessions).sort();
+  }, [sessions, centerData]);
+
   // دالة تغيير الصف الدراسي
   const handleGradeChange = (grade: string) => {
     setSelectedGrade(grade);
@@ -58,11 +76,45 @@ const CenterPage = () => {
     return sessions.filter(session => session.grade === selectedGrade);
   }, [sessions, selectedGrade]);
 
-  // تصفية المدرسين حسب الصف المختار
+  // استخراج المدرسين من الحصص المصفاة (مصدر الحقيقة الوحيد)
   const filteredTeachers = useMemo(() => {
-    if (!selectedGrade) return [];
-    return teachers.filter(teacher => teacher.grade === selectedGrade);
-  }, [teachers, selectedGrade]);
+    if (!selectedGrade || filteredSessions.length === 0) return [];
+
+    // استخراج teacherIds الفريدة من الحصص المصفاة
+    const teacherIdsSet = new Set<string>();
+    filteredSessions.forEach(session => {
+      if (session.teacherId) {
+        teacherIdsSet.add(session.teacherId);
+      }
+    });
+
+    // جلب بيانات المدرسين بناءً على teacherIds
+    const teachersMap = new Map(teachers.map(t => [t.id, t]));
+    const uniqueTeachers: typeof teachers = [];
+
+    teacherIdsSet.forEach(teacherId => {
+      const teacher = teachersMap.get(teacherId);
+      if (teacher) {
+        uniqueTeachers.push(teacher);
+      } else {
+        // في حالة عدم وجود بيانات كاملة للمدرس، نحاول استخراجها من الحصة
+        const session = filteredSessions.find(s => s.teacherId === teacherId);
+        if (session && session.teacherName) {
+          console.warn(`Teacher data incomplete for ID: ${teacherId}. Using session data as fallback.`);
+          uniqueTeachers.push({
+            id: teacherId,
+            name: session.teacherName,
+            subject: session.subject,
+            grade: selectedGrade,
+            image: session.teacherImage,
+            photo: session.teacherImage,
+          });
+        }
+      }
+    });
+
+    return uniqueTeachers;
+  }, [filteredSessions, teachers, selectedGrade]);
 
   if (loading) {
     return (
@@ -183,7 +235,7 @@ const CenterPage = () => {
                     <SelectValue placeholder="اختر الصف الدراسي" />
                   </SelectTrigger>
                   <SelectContent>
-                    {centerData.grades.map((grade) => (
+                    {activeGrades.map((grade) => (
                       <SelectItem key={grade} value={grade}>
                         {grade}
                       </SelectItem>

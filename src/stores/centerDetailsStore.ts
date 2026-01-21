@@ -20,6 +20,7 @@ export interface Session {
     teacher?: string;
     teacherName?: string;
     teacherId?: string;
+    teacherImage?: string; // صورة المدرس
     time?: string;
     sessionTime?: string;
     duration?: number;
