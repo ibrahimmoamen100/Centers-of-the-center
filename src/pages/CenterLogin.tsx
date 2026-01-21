@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { SEO } from "@/components/common/SEO";
 
 export default function CenterLogin() {
   const navigate = useNavigate();
@@ -38,6 +39,7 @@ export default function CenterLogin() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <SEO title="تسجيل دخول المركز" description="تسجيل الدخول لأصحاب المراكز التعليمية لإدارة جداول الحصص والمدرسين والبيانات." />
       <Header />
 
       <main className="flex-1 flex items-center justify-center py-12 px-4">

@@ -14,6 +14,7 @@ import { SessionsManagement } from "@/components/center/SessionsManagement";
 import { TimetableManagement } from "@/components/center/TimetableManagement";
 import { CenterSettings } from "@/components/center/CenterSettings";
 import { SubscriptionInfo } from "@/components/center/SubscriptionInfo";
+import { SEO } from "@/components/common/SEO";
 
 export type CenterTab = "overview" | "teachers" | "sessions" | "timetable" | "settings" | "subscription";
 
@@ -118,6 +119,7 @@ export default function CenterDashboard() {
 
   return (
     <SidebarProvider defaultOpen>
+      <SEO title={`${centerData.name} - لوحة التحكم`} />
       <div className="min-h-screen flex w-full bg-background" dir="rtl">
         <CenterSidebar
           activeTab={activeTab}

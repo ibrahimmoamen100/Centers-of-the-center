@@ -1,12 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldX, Home, ArrowRight } from 'lucide-react';
+import { SEO } from '@/components/common/SEO';
 
 export default function Unauthorized() {
     const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
+            <SEO title="غير مصرح" />
             <div className="max-w-md w-full text-center">
                 {/* Icon */}
                 <div className="mb-8 flex justify-center">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { SEO } from "@/components/common/SEO";
 
 export default function AdminLogin() {
     const navigate = useNavigate();
@@ -50,6 +51,7 @@ export default function AdminLogin() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-pink-50 p-4">
+            <SEO title="تسجيل دخول المسؤول" />
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
                     <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">

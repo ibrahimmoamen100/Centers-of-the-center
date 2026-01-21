@@ -21,6 +21,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { governorates, areasByGovernorate, type Governorate } from "@/data/locations";
 import { allSubjects } from "@/data/subjects";
+import { SEO } from "@/components/common/SEO";
 
 const stages = [
   { id: "preparatory", label: "المرحلة الإعدادية" },
@@ -293,6 +294,7 @@ export default function CenterRegister() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <SEO title="تسجيل مركز جديد" description="انضم لمنصة دليل المراكز التعليمية. سجل مركزك الآن وقم بإدارة جداول الحصص والمدرسين بسهولة." />
       <Header />
 
       <main className="flex-1 py-12 px-4">

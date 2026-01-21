@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { CentersManagement } from "@/components/admin/CentersManagement";
 import { ReportsSection } from "@/components/admin/ReportsSection";
+import { SEO } from "@/components/common/SEO";
 
 export type AdminSection = "centers" | "reports";
 
@@ -22,6 +23,7 @@ const AdminDashboard = () => {
 
   return (
     <SidebarProvider>
+      <SEO title="لوحة التحكم - المسؤول" />
       <div className="min-h-screen flex w-full bg-background" dir="rtl">
         <AdminSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 

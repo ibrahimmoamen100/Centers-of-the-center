@@ -155,10 +155,10 @@ const CenterPage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <SEO
-        title={centerData.name}
-        description={centerData.description || `مركز ${centerData.name} التعليمي في ${centerData.governorate} - ${centerData.area}. اعرف جدول الحصص والمدرسين.`}
+        title={centerData.centerUsername}
+        description={centerData.description || `مركز ${centerData.centerUsername} التعليمي في ${centerData.governorate} - ${centerData.area}. اعرف جدول الحصص والمدرسين.`}
         image={centerData.logo}
-        keywords={`${centerData.name}, مركز تعليمي, ${centerData.governorate}, ${centerData.area}, دروس خصوصية, ثانوية عامة`}
+        keywords={`${centerData.centerUsername}, مركز تعليمي, ${centerData.governorate}, ${centerData.area}, دروس خصوصية, ثانوية عامة`}
       />
       <Header isSticky={false} />
       <main className="flex-1">
