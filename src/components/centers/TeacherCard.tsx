@@ -6,7 +6,10 @@ interface TeacherCardProps {
     id: string;
     name: string;
     photo?: string;
+    image?: string;
+    subject?: string;
     subjects?: string[];
+    grade?: string; // الصف الدراسي
     experience?: string;
     rating?: number;
     bio?: string;
@@ -15,9 +18,11 @@ interface TeacherCardProps {
 
 const TeacherCard = ({ teacher }: TeacherCardProps) => {
   // Validate and provide defaults for optional fields
-  const photoUrl = teacher.photo || null;
+  const photoUrl = teacher.photo || teacher.image || null;
+  const subject = teacher.subject || null;
   const subjects = Array.isArray(teacher.subjects) ? teacher.subjects : [];
-  const experience = teacher.experience || "غير محدد";
+  const grade = teacher.grade || null;
+  const experience = teacher.experience || null;
   const rating = teacher.rating ?? 0;
   const bio = teacher.bio || null;
 
@@ -48,49 +53,55 @@ const TeacherCard = ({ teacher }: TeacherCardProps) => {
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-bold text-foreground truncate">{teacher.name}</h4>
-          <p className="text-sm text-muted-foreground">{experience}</p>
-          {rating > 0 && (
-            <div className="flex items-center gap-1 mt-1">
-              <Star className="h-3.5 w-3.5 text-warning fill-warning" />
-              <span className="text-sm font-medium text-foreground">{rating.toFixed(1)}</span>
-            </div>
-          )}
+
+          {/* عرض المادة والصف */}
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {subject && (
+              <Badge variant="secondary" className="text-xs">
+                {subject}
+              </Badge>
+            )}
+            {grade && (
+              <Badge variant="outline" className="text-xs">
+                {grade}
+              </Badge>
+            )}
+          </div>
+
+          {/* عرض الخبرة والتقييم */}
+          <div className="flex items-center gap-2 mt-1.5">
+            {experience && (
+              <span className="text-xs text-muted-foreground">{experience}</span>
+            )}
+            {rating > 0 && (
+              <div className="flex items-center gap-1">
+                <Star className="h-3 w-3 text-warning fill-warning" />
+                <span className="text-xs font-medium text-foreground">{rating.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-
-      {
-        bio && (
-          <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
-            {bio}
-          </p>
-        )
-      }
+      {/* النبذة */}
+      {bio && (
+        <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
+          {bio}
+        </p>
+      )}
 
       <div className="flex-1 min-h-[0.5rem]"></div> {/* Spacer */}
 
-
-      {/* Only show subjects if they exist */}
-      {
-        subjects.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-4">
-            {subjects.map((subject, index) => (
-              <Badge key={`${subject}-${index}`} variant="secondary" className="text-xs">
-                {subject}
-              </Badge>
-            ))}
-          </div>
-        )
-      }
-
-      {/* Show message if no subjects */}
-      {
-        subjects.length === 0 && (
-          <div className="mt-4 text-xs text-muted-foreground text-center py-2 bg-muted/50 rounded">
-            لم يتم تحديد مواد بعد
-          </div>
-        )
-      }
+      {/* عرض قائمة المواد (إذا وجدت) - للتوافق مع البيانات القديمة */}
+      {subjects.length > 0 && !subject && (
+        <div className="flex flex-wrap gap-1.5 mt-4">
+          {subjects.map((subj, index) => (
+            <Badge key={`${subj}-${index}`} variant="secondary" className="text-xs">
+              {subj}
+            </Badge>
+          ))}
+        </div>
+      )}
     </div >
   );
 };

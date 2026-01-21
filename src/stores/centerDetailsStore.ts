@@ -8,6 +8,7 @@ export interface Teacher {
     image?: string;
     subjects?: string[];
     subject?: string;
+    grade?: string; // الصف الدراسي الذي يدرسه المدرس
     experience?: string;
     rating?: number;
     bio?: string;

@@ -152,6 +152,7 @@ const CenterPage = () => {
                 >
                   <TimetableCalendar
                     sessions={sessions}
+                    teachers={teachers}
                     openingTime={centerData?.openingTime}
                     closingTime={centerData?.closingTime}
                   />

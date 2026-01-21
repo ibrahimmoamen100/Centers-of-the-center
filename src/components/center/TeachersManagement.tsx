@@ -41,6 +41,7 @@ interface Teacher {
   id: string;
   name: string;
   subject: string;
+  grade: string; // الصف الدراسي
   image?: string;
   bio?: string;
   phone: string;
@@ -56,6 +57,7 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [centerSubjects, setCenterSubjects] = useState<string[]>([]);
+  const [centerGrades, setCenterGrades] = useState<string[]>([]); // الصفوف الدراسية
 
   // Dialog States
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -66,12 +68,13 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
   const [newTeacher, setNewTeacher] = useState({
     name: "",
     subject: "",
+    grade: "", // الصف الدراسي
     phone: "",
     bio: "",
     image: "",
   });
 
-  // Fetch center data to get subjects
+  // Fetch center data to get subjects and grades
   useEffect(() => {
     const fetchCenterData = async () => {
       try {
@@ -79,6 +82,7 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
         if (centerDoc.exists()) {
           const data = centerDoc.data();
           setCenterSubjects(data.subjects || []);
+          setCenterGrades(data.grades || []); // جلب الصفوف الدراسية
         }
       } catch (error) {
         console.error("Error fetching center data:", error);
@@ -124,6 +128,7 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
       const docRef = await addDoc(collection(db, "centers", centerId, "teachers"), {
         name: newTeacher.name,
         subject: newTeacher.subject,
+        grade: newTeacher.grade, // حفظ الصف الدراسي
         phone: newTeacher.phone,
         bio: newTeacher.bio || "",
         image: newTeacher.image || ""
@@ -133,13 +138,14 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
         id: docRef.id,
         name: newTeacher.name,
         subject: newTeacher.subject,
+        grade: newTeacher.grade, // إضافة الصف الدراسي
         phone: newTeacher.phone,
         bio: newTeacher.bio,
         image: newTeacher.image
       };
 
       setTeachers([...teachers, teacher]);
-      setNewTeacher({ name: "", subject: "", phone: "", bio: "", image: "" });
+      setNewTeacher({ name: "", subject: "", grade: "", phone: "", bio: "", image: "" });
       setIsAddOpen(false);
       updateOperations();
       toast.success("تم إضافة المدرس بنجاح");
@@ -156,6 +162,7 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
       await updateDoc(teacherRef, {
         name: editingTeacher.name,
         subject: editingTeacher.subject,
+        grade: editingTeacher.grade, // تحديث الصف الدراسي
         phone: editingTeacher.phone,
         bio: editingTeacher.bio || "",
         image: editingTeacher.image || ""
@@ -274,6 +281,29 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
               </div>
 
               <div className="space-y-2">
+                <Label>الصف الدراسي الذي يدرسه</Label>
+                <Select
+                  value={newTeacher.grade}
+                  onValueChange={(value) => setNewTeacher({ ...newTeacher, grade: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الصف الدراسي" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centerGrades.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">لا توجد صفوف مسجلة للمركز</div>
+                    ) : (
+                      centerGrades.map((grade) => (
+                        <SelectItem key={grade} value={grade}>
+                          {grade}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>نبذة عن المدرس (اختياري)</Label>
                 <Textarea
                   placeholder="نبذة مختصرة عن خبرات ومؤهلات المدرس..."
@@ -317,7 +347,12 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold">{teacher.name}</h3>
-                    <Badge variant="secondary" className="mt-1">{teacher.subject}</Badge>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      <Badge variant="secondary">{teacher.subject}</Badge>
+                      {teacher.grade && (
+                        <Badge variant="outline" className="text-xs">{teacher.grade}</Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground mt-2">{teacher.phone}</p>
                   </div>
                 </div>
@@ -430,6 +465,29 @@ export function TeachersManagement({ canEdit, remainingOps, centerId }: Teachers
                         {subject}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>الصف الدراسي الذي يدرسه</Label>
+                <Select
+                  value={editingTeacher.grade}
+                  onValueChange={(value) => setEditingTeacher({ ...editingTeacher, grade: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الصف الدراسي" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centerGrades.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground">لا توجد صفوف مسجلة للمركز</div>
+                    ) : (
+                      centerGrades.map((grade) => (
+                        <SelectItem key={grade} value={grade}>
+                          {grade}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

@@ -56,6 +56,7 @@ interface Teacher {
   id: string;
   name: string;
   subject: string;
+  grade: string; // الصف الدراسي
   image?: string; // Added image
 }
 
@@ -71,7 +72,6 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [centerGrades, setCenterGrades] = useState<string[]>([]);
 
   // Dialog States
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -84,7 +84,8 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
     teacherId: "",
     teacherName: "",
     teacherImage: "",
-    grade: "",
+    teacherGrade: "", // سنستخدم grade من المدرس مباشرة
+    grade: "", // للتوافق مع الكود السابق
     type: "single" as 'recurring' | 'single',
     startDateTime: "",
     endDateTime: "",
@@ -105,7 +106,6 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
   useEffect(() => {
     fetchSessions();
     fetchTeachers();
-    fetchCenterData();
   }, [centerId]);
 
   const fetchTeachers = async () => {
@@ -119,17 +119,6 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
       setTeachers(data);
     } catch (error) {
       console.error("Error fetching teachers:", error);
-    }
-  };
-
-  const fetchCenterData = async () => {
-    try {
-      const centerDoc = await getDoc(doc(db, "centers", centerId));
-      if (centerDoc.exists()) {
-        setCenterGrades(centerDoc.data().grades || []);
-      }
-    } catch (error) {
-      console.error("Error fetching center data:", error);
     }
   };
 
@@ -164,8 +153,14 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
     if (!canEdit) return;
 
     // Validation
-    if (!formData.teacherId || !formData.grade || !formData.subject) {
-      toast.error("يرجى تعبئة جميع البيانات الأساسية");
+    if (!formData.teacherId || !formData.subject) {
+      toast.error("يرجى اختيار مدرس");
+      return;
+    }
+
+    // التحقق من أن المدرس لديه صف دراسي محدد
+    if (!formData.grade) {
+      toast.error("المدرس المختار لا يمتلك صف دراسي محدد. يرجى تحديث بيانات المدرس أولاً.");
       return;
     }
 
@@ -370,6 +365,7 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
       teacherName: session.teacherName,
       teacherImage: session.teacherImage || "",
       grade: session.grade,
+      teacherGrade: session.grade, // إضافة teacherGrade
       type: session.type,
 
       // Required base fields
@@ -398,6 +394,7 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
       teacherName: "",
       teacherImage: "",
       grade: "",
+      teacherGrade: "", // إضافة teacherGrade
       type: "single",
       startDateTime: "",
       endDateTime: "",
@@ -457,18 +454,22 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
   const renderFormContent = (isEdit: boolean) => (
     <div className="space-y-4 py-4">
       <div className="space-y-2">
-        <Label>المدرس (سيتم تحديد المادة تلقائياً)</Label>
+        <Label>المدرس (سيتم تحديد المادة والصف الدراسي تلقائياً)</Label>
         <Select
           value={formData.teacherId}
           onValueChange={(teacherId) => {
             const selectedTeacher = teachers.find(t => t.id === teacherId);
-            setFormData({
-              ...formData,
-              teacherId,
-              teacherName: selectedTeacher?.name || '',
-              subject: selectedTeacher?.subject || '',
-              teacherImage: selectedTeacher?.image || ''
-            });
+            if (selectedTeacher) {
+              setFormData({
+                ...formData,
+                teacherId,
+                teacherName: selectedTeacher.name,
+                subject: selectedTeacher.subject,
+                grade: selectedTeacher.grade || '', // أخذ الصف من بيانات المدرس
+                teacherGrade: selectedTeacher.grade || '',
+                teacherImage: selectedTeacher.image || ''
+              });
+            }
           }}
         >
           <SelectTrigger>
@@ -480,7 +481,7 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
             ) : (
               teachers.map((teacher) => (
                 <SelectItem key={teacher.id} value={teacher.id}>
-                  {teacher.name} - {teacher.subject}
+                  {teacher.name} - {teacher.subject}{teacher.grade ? ` - ${teacher.grade}` : ''}
                 </SelectItem>
               ))
             )}
@@ -492,46 +493,29 @@ export function SessionsManagement({ canEdit, remainingOps, centerId }: Sessions
         <div className="p-2 bg-muted rounded-md flex items-center gap-2">
           <span className="text-sm font-medium">المادة المختارة:</span>
           <Badge variant="secondary">{formData.subject}</Badge>
+          {formData.grade && (
+            <>
+              <span className="text-sm font-medium">• الصف:</span>
+              <Badge variant="outline">{formData.grade}</Badge>
+            </>
+          )}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>نوع الحصة</Label>
-          <Select
-            value={formData.type}
-            onValueChange={(value: 'recurring' | 'single') => setFormData({ ...formData, type: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">حصة فردية (مرة واحدة)</SelectItem>
-              <SelectItem value="recurring">حصة مستمرة (أسبوعية)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label>الصف</Label>
-          <Select
-            value={formData.grade}
-            onValueChange={(value) => setFormData({ ...formData, grade: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="اختر الصف" />
-            </SelectTrigger>
-            <SelectContent>
-              {centerGrades.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">لا توجد صفوف مسجلة</div>
-              ) : (
-                centerGrades.map((grade) => (
-                  <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label>نوع الحصة</Label>
+        <Select
+          value={formData.type}
+          onValueChange={(value: 'recurring' | 'single') => setFormData({ ...formData, type: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="single">حصة فردية (مرة واحدة)</SelectItem>
+            <SelectItem value="recurring">حصة مستمرة (أسبوعية)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {formData.type === 'single' ? (
