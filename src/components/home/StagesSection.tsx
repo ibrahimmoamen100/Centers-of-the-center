@@ -2,21 +2,20 @@ import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, School } from "lucide-react";
 
 const stages = [
-  {
-    id: "primary",
-    name: "المرحلة الابتدائية",
-    grades: "من الصف الأول إلى السادس",
-    icon: BookOpen,
-    color: "bg-info/10 text-info",
-    count: 120,
-  },
+  // {
+  //   id: "primary",
+  //   name: "المرحلة الابتدائية",
+  //   grades: "من الصف الأول إلى السادس",
+  //   icon: BookOpen,
+  //   color: "bg-info/10 text-info",
+  //   count: 120,
+  // },
   {
     id: "prep",
     name: "المرحلة الإعدادية",
     grades: "من الصف الأول إلى الثالث",
     icon: School,
     color: "bg-secondary/10 text-secondary",
-    count: 180,
   },
   {
     id: "secondary",
@@ -24,7 +23,6 @@ const stages = [
     grades: "من الصف الأول إلى الثالث",
     icon: GraduationCap,
     color: "bg-primary/10 text-primary",
-    count: 200,
   },
 ];
 
@@ -59,7 +57,6 @@ const StagesSection = () => {
                 <p className="text-muted-foreground mb-4">{stage.grades}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    {stage.count} مركز
                   </span>
                   <span className="text-primary font-medium text-sm group-hover:translate-x-[-4px] transition-transform">
                     تصفح المراكز ←

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { governorates, areasByGovernorate, type Governorate } from "@/data/locations";
-import { subjectCategories } from "@/data/subjects";
+import { subjectCategories, allSubjects } from "@/data/subjects";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
@@ -57,12 +57,13 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
     address: "",
     facebook: "",
     instagram: "",
-    workingHours: "",
+
+    // workingHours removed
     openingTime: "", // Added: e.g., "09:00"
     closingTime: "", // Added: e.g., "22:00"
     selectedStages: [] as string[],
     selectedGrades: [] as string[],
-    selectedSubjects: [] as string[],
+    selectedSubjects: allSubjects.map(s => s.label),
   });
 
   useEffect(() => {
@@ -78,12 +79,13 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
         address: centerData.address || "",
         facebook: centerData.facebook || "",
         instagram: centerData.instagram || "",
-        workingHours: centerData.workingHours || "",
+
+        // workingHours removed
         openingTime: centerData.openingTime || "",
         closingTime: centerData.closingTime || "",
         selectedStages: centerData.stages || [],
         selectedGrades: centerData.grades || [],
-        selectedSubjects: centerData.subjects || [],
+        selectedSubjects: (centerData.subjects && centerData.subjects.length > 0) ? centerData.subjects : allSubjects.map(s => s.label),
       });
       if (centerData.logo) setLogoPreview(centerData.logo);
     }
@@ -167,8 +169,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
   const handleSave = async () => {
     if (!canEdit) return;
 
-    if (!formData.governorate || !formData.area || !formData.address || !formData.workingHours || formData.selectedStages.length === 0) {
-      toast.error("يرجى إكمال البيانات الأساسية (المحافظة، المنطقة، العنوان، مواعيد العمل، المراحل الدراسية)");
+    if (!formData.governorate || !formData.area || !formData.address || !formData.openingTime || !formData.closingTime || formData.selectedStages.length === 0) {
+      toast.error("يرجى إكمال البيانات الأساسية (المحافظة، المنطقة، العنوان، وقت الفتح والإغلاق، المراحل الدراسية)");
       return;
     }
 
@@ -206,7 +208,8 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
         address: formData.address,
         facebook: formData.facebook,
         instagram: formData.instagram,
-        workingHours: formData.workingHours,
+
+        // workingHours removed
         openingTime: formData.openingTime || null,
         closingTime: formData.closingTime || null,
         stages: formData.selectedStages,
@@ -428,19 +431,11 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>مواعيد العمل <span className="text-destructive">*</span></Label>
-              <Input
-                value={formData.workingHours}
-                onChange={(e) => setFormData({ ...formData, workingHours: e.target.value })}
-                disabled={!canEdit}
-                placeholder="مثال: يومياً من 10 صباحاً حتى 10 مساءً"
-              />
-            </div>
+
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>وقت الفتح - اختياري</Label>
+                <Label>وقت الفتح <span className="text-destructive">*</span></Label>
                 <Input
                   type="time"
                   value={formData.openingTime}
@@ -454,7 +449,7 @@ export function CenterSettings({ canEdit, remainingOps, centerData }: CenterSett
               </div>
 
               <div className="space-y-2">
-                <Label>وقت الإغلاق - اختياري</Label>
+                <Label>وقت الإغلاق <span className="text-destructive">*</span></Label>
                 <Input
                   type="time"
                   value={formData.closingTime}

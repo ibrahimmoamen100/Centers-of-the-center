@@ -12,7 +12,17 @@ const CenterCard = ({ center }: CenterCardProps) => {
   const logo = center.logo || "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop";
   const rating = center.rating || 0;
   const reviewCount = center.reviewCount || 0;
+
+  // Get teacher count - use teacherCount from center data
   const teacherCount = center.teacherCount || 0;
+
+  // Format location: show governorate and area instead of full address
+  const locationDisplay = center.governorate && center.area
+    ? `${center.governorate} - ${center.area}`
+    : center.governorate || center.area || center.location || 'غير محدد';
+
+  // Get all stages (not just first one)
+  const stages = center.stages && center.stages.length > 0 ? center.stages : [center.stage].filter(Boolean);
 
   return (
     <Link
@@ -36,7 +46,7 @@ const CenterCard = ({ center }: CenterCardProps) => {
               </h3>
               <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
                 <MapPin className="h-4 w-4" />
-                <span>{center.location}</span>
+                <span>{locationDisplay}</span>
               </div>
             </div>
           </div>
@@ -48,10 +58,16 @@ const CenterCard = ({ center }: CenterCardProps) => {
           )}
         </div>
 
-        {/* Stage badge */}
-        <Badge variant="secondary" className="mb-4">
-          {center.stage}
-        </Badge>
+        {/* Stages badges */}
+        {stages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {stages.map((stage) => (
+              <Badge key={stage} variant="secondary">
+                {stage}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {/* Subjects */}
         <div className="flex flex-wrap gap-2 mb-4">

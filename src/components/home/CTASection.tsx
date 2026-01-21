@@ -39,7 +39,7 @@ const CTASection = () => {
             </ul>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button variant="hero" size="xl" asChild>
-                <Link to="/register">
+                <Link to="/center/register">
                   سجل مركزك الآن
                   <ArrowLeft className="h-5 w-5 mr-2" />
                 </Link>

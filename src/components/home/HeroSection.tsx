@@ -23,14 +23,7 @@ const HeroSection = () => {
 
       <div className="container relative">
         <div className="mx-auto max-w-3xl text-center">
-          {/* Badge */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-4 py-2 text-sm text-primary-foreground backdrop-blur-sm animate-fade-in">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
-            </span>
-            +500 مركز تعليمي مسجل
-          </div>
+
 
           {/* Headline */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight mb-6 animate-slide-up">
@@ -39,7 +32,7 @@ const HeroSection = () => {
             <span className="relative">
               المراكز التعليمية
               <svg className="absolute -bottom-2 left-0 right-0 h-3 w-full" viewBox="0 0 200 12" fill="none">
-                <path d="M2 10C50 2 150 2 198 10" stroke="hsl(var(--secondary))" strokeWidth="4" strokeLinecap="round"/>
+                <path d="M2 10C50 2 150 2 198 10" stroke="hsl(var(--secondary))" strokeWidth="4" strokeLinecap="round" />
               </svg>
             </span>
           </h1>
@@ -67,19 +60,7 @@ const HeroSection = () => {
             </div>
           </form>
 
-          {/* Quick Tags */}
-          <div className="mt-8 flex flex-wrap justify-center gap-2 animate-fade-in stagger-3">
-            <span className="text-primary-foreground/60 text-sm">بحث سريع:</span>
-            {["رياضيات", "فيزياء", "لغة عربية", "لغة إنجليزية"].map((tag) => (
-              <button
-                key={tag}
-                onClick={() => navigate(`/search?subject=${encodeURIComponent(tag)}`)}
-                className="px-3 py-1 rounded-full bg-primary-foreground/10 text-primary-foreground text-sm hover:bg-primary-foreground/20 transition-colors"
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+
         </div>
       </div>
 

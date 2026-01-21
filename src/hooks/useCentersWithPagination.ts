@@ -98,15 +98,31 @@ export function useCentersWithPagination() {
             const centersQuery = query(collection(db, 'centers'), ...constraints);
             const querySnapshot = await getDocs(centersQuery);
 
-            let fetchedCenters = querySnapshot.docs.map((doc) => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    stage: (data.stages && data.stages.length > 0) ? data.stages[0] : '',
-                    grade: (data.grades && data.grades.length > 0) ? data.grades[0] : '',
-                };
-            }) as any[];
+            // جلب المراكز مع حساب عدد المدرسين
+            let fetchedCenters = await Promise.all(
+                querySnapshot.docs.map(async (doc) => {
+                    const data = doc.data();
+
+                    // حساب عدد المدرسين من subcollection
+                    let teacherCount = data.teacherCount || 0;
+                    try {
+                        const teachersSnapshot = await getDocs(
+                            collection(db, 'centers', doc.id, 'teachers')
+                        );
+                        teacherCount = teachersSnapshot.size;
+                    } catch (error) {
+                        console.warn(`Failed to fetch teacher count for center ${doc.id}:`, error);
+                    }
+
+                    return {
+                        id: doc.id,
+                        ...data,
+                        teacherCount, // استخدام العدد المحسوب
+                        stage: (data.stages && data.stages.length > 0) ? data.stages[0] : '',
+                        grade: (data.grades && data.grades.length > 0) ? data.grades[0] : '',
+                    };
+                })
+            ) as any[];
 
             // 🔍 Client-side filtering للفلاتر التي لم تُستخدم في Query
 

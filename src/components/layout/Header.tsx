@@ -3,11 +3,15 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, Search, Menu, X } from "lucide-react";
 import { useState } from "react";
 
-const Header = () => {
+interface HeaderProps {
+  isSticky?: boolean;
+}
+
+const Header = ({ isSticky = true }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className={`${isSticky ? 'sticky top-0' : 'relative'} z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60`}>
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">

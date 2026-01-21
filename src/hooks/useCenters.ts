@@ -10,6 +10,7 @@ export interface Center {
     governorate?: string;
     area?: string;
     stage: string;
+    stages?: string[]; // All stages offered by the center
     grade?: string; // Added for grade filtering
     subjects: string[];
     rating?: number;

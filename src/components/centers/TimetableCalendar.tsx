@@ -53,6 +53,8 @@ const dayNameToIndex: Record<string, number> = {
   "الجمعة": 6
 };
 
+const monthNames = ["يناير", "فبراير", "مارس", "إبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
 // Grade colors
 const gradeColors: Record<string, string> = {
   "الصف الأول الابتدائي": "bg-blue-500",
@@ -321,12 +323,13 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
 
   const formatWeekDisplay = () => {
     const startDay = weekStart.getDate();
-    const startMonth = weekStart.getMonth() + 1;
+    const startMonth = weekStart.getMonth();
     const endDay = weekEnd.getDate();
-    const endMonth = weekEnd.getMonth() + 1;
+    const endMonth = weekEnd.getMonth();
     const year = weekEnd.getFullYear();
 
-    return `${startDay}/${startMonth} - ${endDay}/${endMonth}/${year}`;
+    // Format: 17/1/2026 - 23/1/2026
+    return `${startDay}/${startMonth + 1}/${year} - ${endDay}/${endMonth + 1}/${year}`;
   };
 
   const getSessionTimeDetails = (session: Session) => {
@@ -401,37 +404,42 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
     <>
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border-b border-border bg-gradient-to-r from-primary/5 to-primary/10">
+          <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-lg text-foreground">جدول الحصص الأسبوعي</h3>
+            <div>
+              <h3 className="font-bold text-lg text-foreground">جدول الحصص الأسبوعي</h3>
+              <p className="text-xs text-muted-foreground">
+                {monthNames[weekStart.getMonth()]} {weekStart.getFullYear()}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-
-            <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handlePreviousWeek}
-                disabled={!canGoPrevious}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <div className="px-3 text-sm font-medium text-foreground whitespace-nowrap min-w-[140px] text-center">
+          <div className="flex items-center gap-2 bg-background rounded-lg p-1 border shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs font-medium"
+              onClick={handlePreviousWeek}
+              disabled={!canGoPrevious}
+            >
+              السابق
+            </Button>
+            <div className="flex flex-col items-center justify-center min-w-[120px]">
+              <span className="text-[10px] text-muted-foreground font-medium mb-0.5">هذا الأسبوع</span>
+              <div className="px-2 sm:px-4 text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap text-center dir-ltr">
                 {formatWeekDisplay()}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleNextWeek}
-                disabled={!canGoNext}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs font-medium"
+              onClick={handleNextWeek}
+              disabled={!canGoNext}
+            >
+              التالي
+            </Button>
           </div>
         </div>
 
@@ -508,13 +516,12 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
 
                     const teacherName = session.teacherName || session.teacher || '';
                     const timeDetails = getSessionTimeDetails(session);
-                    const teacherImage = getTeacherImage(session);
                     const dayName = days[dayIndex];
 
                     return (
                       <div
                         key={`${session.id}-${overlapIndex}`}
-                        className={`absolute rounded-md ${colorClass} text-white p-1.5 shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden group hover:scale-[1.02] active:scale-[0.98] border border-white/10`}
+                        className={`absolute rounded-xl ${colorClass} text-white p-2 shadow-sm hover:shadow-xl transition-all cursor-pointer overflow-hidden group hover:scale-[1.02] active:scale-[0.98] border border-white/10 flex flex-col justify-between`}
                         style={{
                           top: style.top,
                           height: style.height,
@@ -529,48 +536,47 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
                         }}
                         onClick={() => setSelectedSession(session)}
                       >
-                        <div className="flex flex-col h-full relative">
-                          {/* Header: Subject + Teacher Image */}
-                          <div className="flex justify-between items-end gap-1">
-                            {/* Content */}
-                            <div className="min-w-0 pl-0"> {/* Padding left for image space */}
-                              <div className="text-[10px] opacity-70 leading-none mb-0.5 font-medium">{dayName}</div>
-                              <div className="text-xs font-bold leading-tight truncate">
-                                {session.subject}
-                              </div>
-                            </div>
-
-                            {/* Tiny Teacher Image - Moved to Right (Left in RTL is end, so standard positioning) */}
-                            {/* In RTL interfaces, left-0 is actually the right visual side if direction is rtl? No, left is always left absolute. */}
-                            {/* Assuming standard LTR context for absolute positioning within a container, 
-                                 if we want it on the "other side" from where it was (left-0), we put it right-0. 
-                             */}
-                            {/* {teacherImage && (
-                              <div className="absolute top-1 left-auto right-1 w-6 h-6 rounded-full overflow-hidden border border-white/30 bg-white/10 z-10">
-                                <img src={teacherImage} alt={teacherName} className="w-full h-full object-cover" />
-                              </div>
-
-                            )} */}
+                        {/* Top Section: Arrow & Subject (Swapped) */}
+                        <div className="flex justify-between items-start gap-1">
+                          {/* More Options Arrow - Moved first (appears Right in LTR, Left in RTL - wait, in RTL flex: start is right. So first item is Right. Second item is Left. Correct?) 
+                              In RTL:
+                              Flex container. 
+                              First child -> Right side
+                              Last child -> Left side
+                              
+                              Current: Text (First) -> Right side. Arrow (Last) -> Left side.
+                              User wants: "Transfer speech to other side (Left) and arrow to speech side (Right)".
+                              So Arrow must be First Child. Text must be Last Child.
+                          */}
+                          <div className="opacity-60 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 rounded-full p-0.5 flex-shrink-0">
+                            <ChevronLeft className="h-3 w-3" />
                           </div>
 
-                          {/* Footer: Time + Optional Teacher Name */}
-                          <div className="mt-auto pt-1">
-                            {!teacherImage && teacherName && (
-                              <div className="text-[9px] opacity-90 truncate mb-0.5">
-                                {teacherName}
-                              </div>
-                            )}
-                            <div className="text-[10px] bg-black/20 self-start px-1 rounded inline-block  opacity-90">
-                              {timeDetails.start}
-                            </div>
+                          <div className="min-w-0 text-left">
+                            <div className="text-[10px] opacity-80 leading-none mb-1 font-medium text-right">{dayName}</div>
+                            <h4 className="text-xs font-bold leading-tight truncate text-right">
+                              {session.subject}
+                            </h4>
                           </div>
                         </div>
 
-                        {/* Overlap indicator */}
-                        {totalOverlaps > 1 && (
-                          <div className="absolute bottom-0.5 left-0.5 bg-black/40 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center font-bold">
-                            {totalOverlaps}
+                        {/* Middle/Bottom: Teacher & Time */}
+                        <div className="mt-auto pt-2 flex flex-col items-end">
+                          {teacherName && (
+                            <div className="text-[10px] font-medium truncate mb-1 flex items-center gap-0.5 opacity-95 flex-row-reverse">
+                              <span className="opacity-70 text-[9px]">/أ</span>
+                              <span>{teacherName}</span>
+                            </div>
+                          )}
+
+                          <div className="text-[10px] bg-black/20 px-2 py-0.5 rounded-md inline-block font-mono opacity-90 dir-ltr">
+                            {timeDetails.start}
                           </div>
+                        </div>
+
+                        {/* Overlap indicator - Moved to Right (matches Arrow side) */}
+                        {totalOverlaps > 1 && (
+                          <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-white/50" />
                         )}
                       </div>
                     );
@@ -599,7 +605,7 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
 
       {/* Session Details Modal */}
       <Dialog open={!!selectedSession} onOpenChange={() => setSelectedSession(null)}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden gap-0 rounded-2xl md:rounded-3xl border-0 shadow-2xl">
+        <DialogContent className="w-[90vw] sm:max-w-[450px] p-0 overflow-hidden gap-0 rounded-xl md:rounded-2xl border-0 shadow-2xl">
           {selectedSession && (
             <>
               {/* Header with Close Button */}

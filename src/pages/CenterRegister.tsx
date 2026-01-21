@@ -20,6 +20,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { governorates, areasByGovernorate, type Governorate } from "@/data/locations";
+import { allSubjects } from "@/data/subjects";
 
 const stages = [
   { id: "preparatory", label: "المرحلة الإعدادية" },
@@ -202,7 +203,7 @@ export default function CenterRegister() {
         address: `${formData.governorate} - ${formData.area}`, // Fallback
 
         stage: stageLabels || "غير محدد",
-        subjects: [],
+        subjects: allSubjects.map(s => s.label),
         rating: 0,
         reviewCount: 0,
         teacherCount: 0,

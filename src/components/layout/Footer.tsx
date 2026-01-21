@@ -21,12 +21,7 @@ const Footer = () => {
               <a href="#" className="p-2 rounded-lg bg-background/10 hover:bg-background/20 transition-colors">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href="#" className="p-2 rounded-lg bg-background/10 hover:bg-background/20 transition-colors">
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a href="#" className="p-2 rounded-lg bg-background/10 hover:bg-background/20 transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
+
             </div>
           </div>
 
@@ -40,12 +35,10 @@ const Footer = () => {
               <Link to="/search" className="text-background/70 hover:text-background transition-colors text-sm">
                 البحث عن مركز
               </Link>
-              <Link to="/register" className="text-background/70 hover:text-background transition-colors text-sm">
+              <Link to="/center/register" className="text-background/70 hover:text-background transition-colors text-sm">
                 سجل مركزك
               </Link>
-              <Link to="/about" className="text-background/70 hover:text-background transition-colors text-sm">
-                عن المنصة
-              </Link>
+
             </nav>
           </div>
 
@@ -59,9 +52,7 @@ const Footer = () => {
               <Link to="/search?stage=secondary" className="text-background/70 hover:text-background transition-colors text-sm">
                 المرحلة الثانوية
               </Link>
-              <Link to="/search?stage=primary" className="text-background/70 hover:text-background transition-colors text-sm">
-                المرحلة الابتدائية
-              </Link>
+
             </nav>
           </div>
 
@@ -69,13 +60,10 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="font-bold text-lg">تواصل معنا</h3>
             <div className="flex flex-col gap-3">
-              <a href="mailto:info@dalil.com" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors text-sm">
-                <Mail className="h-4 w-4" />
-                info@dalil.com
-              </a>
+
               <a href="tel:+201234567890" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors text-sm">
                 <Phone className="h-4 w-4" />
-                +20 123 456 7890
+                01024911062
               </a>
               <div className="flex items-center gap-2 text-background/70 text-sm">
                 <MapPin className="h-4 w-4" />
@@ -86,7 +74,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/10 mt-10 pt-6 text-center text-background/50 text-sm">
-          <p>© 2024 دليل المراكز التعليمية. جميع الحقوق محفوظة.</p>
+          <p>© 2026 دليل المراكز التعليمية. جميع الحقوق محفوظة.</p>
         </div>
       </div>
     </footer>
