@@ -39,6 +39,7 @@ const TeacherCard = ({ teacher }: TeacherCardProps) => {
             <img
               src={photoUrl}
               alt={teacher.name}
+              loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';

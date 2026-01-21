@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCentersWithPagination } from "@/hooks/useCentersWithPagination";
 import { useCentersStore } from "@/stores/centersStore";
+import { SEO } from "@/components/common/SEO";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
@@ -52,6 +53,10 @@ const Search = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO
+        title={searchQuery ? `نتائج البحث عن "${searchQuery}"` : "بحث عن المراكز"}
+        description="ابحث عن أفضل المراكز التعليمية في منطقتك. تصفح حسب المادة، المرحلة، أو المنطقة."
+      />
       <Header />
       <main className="flex-1 py-8">
         <div className="container">

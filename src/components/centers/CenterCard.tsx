@@ -37,6 +37,7 @@ const CenterCard = ({ center }: CenterCardProps) => {
               <img
                 src={logo}
                 alt={center.name}
+                loading="lazy"
                 className="h-full w-full object-cover"
               />
             </div>

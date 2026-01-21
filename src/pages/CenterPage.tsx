@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatWorkingHoursDisplay } from "@/lib/centerUtils";
 import { useCenterDetails } from "@/hooks/useCenterDetails";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { SEO } from "@/components/common/SEO";
 
 const CenterPage = () => {
   const { id: identifier } = useParams();
@@ -132,6 +133,7 @@ const CenterPage = () => {
   if (error || !centerData) {
     return (
       <div className="min-h-screen flex flex-col pt-10 items-center justify-center bg-background">
+        <SEO title="خطأ - مركز غير موجود" />
         <Header isSticky={false} />
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -152,6 +154,12 @@ const CenterPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO
+        title={centerData.name}
+        description={centerData.description || `مركز ${centerData.name} التعليمي في ${centerData.governorate} - ${centerData.area}. اعرف جدول الحصص والمدرسين.`}
+        image={centerData.logo}
+        keywords={`${centerData.name}, مركز تعليمي, ${centerData.governorate}, ${centerData.area}, دروس خصوصية, ثانوية عامة`}
+      />
       <Header isSticky={false} />
       <main className="flex-1">
         {/* Hero Section */}
