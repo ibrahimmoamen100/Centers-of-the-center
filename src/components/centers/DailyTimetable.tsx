@@ -405,7 +405,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
 
                                 {/* Today Badge */}
                                 {isToday && (
-                                    <div className="absolute top-1 right-1 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-md font-bold shadow-sm z-10">
+                                    <div className="absolute top-0  right-1 bg-primary text-primary-foreground text-[8px] md:text-[10px] px-1 py-0 rounded-sm font-bold  z-10">
                                         اليوم
                                     </div>
                                 )}
