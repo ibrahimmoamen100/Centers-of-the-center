@@ -7,22 +7,32 @@ import SearchFilters from "@/components/search/SearchFilters";
 import CenterCard from "@/components/centers/CenterCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useCentersWithPagination } from "@/hooks/useCentersWithPagination";
+import { useCentersQuery } from "@/hooks/useCentersQuery";
 import { useCentersStore } from "@/stores/centersStore";
 import { SEO } from "@/components/common/SEO";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const { setFilters } = useCentersStore();
+  const { setFilters, filters } = useCentersStore();
 
-  // Use new hook with pagination
-  const { centers, loading, error, hasMore, loadMore, currentPage } = useCentersWithPagination();
+  // ⚡ Use optimized React Query hook
+  const { centers, loading, error, hasMore, currentPage, nextPage, previousPage, resetPagination } = useCentersQuery();
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    resetPagination();
+  }, [
+    filters.governorate,
+    filters.area,
+    filters.stage,
+    filters.grade,
+    filters.searchQuery,
+  ]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Update filters with search query
-    setFilters({ searchQuery: searchQuery.trim() });
+    setFilters({ ...filters, searchQuery: searchQuery.trim() });
   };
 
   const handleFilterChange = (newFilters: any) => {
@@ -36,7 +46,7 @@ const Search = () => {
     });
   };
 
-  // Client-side filter for search query (in addition to server-side searchKeywords)
+  // Client-side filter for search query (additional filtering)
   const filteredCenters = searchQuery
     ? centers.filter((center) => {
       const query = searchQuery.toLowerCase();
@@ -136,12 +146,26 @@ const Search = () => {
               {/* Pagination */}
               {filteredCenters.length > 0 && (
                 <div className="mt-12 flex flex-col items-center gap-4">
-                  {hasMore && (
+                  <div className="flex items-center gap-3">
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={loadMore}
-                      disabled={loading}
+                      onClick={previousPage}
+                      disabled={loading || currentPage === 1}
+                    >
+                      <ChevronRight className="h-4 w-4 mr-2" />
+                      السابق
+                    </Button>
+
+                    <span className="px-4 py-2 text-sm font-medium">
+                      صفحة {currentPage}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={nextPage}
+                      disabled={loading || !hasMore}
                     >
                       {loading ? (
                         <>
@@ -151,14 +175,14 @@ const Search = () => {
                       ) : (
                         <>
                           <ChevronLeft className="h-4 w-4 ml-2" />
-                          تحميل المزيد (9 مراكز)
+                          التالي
                         </>
                       )}
                     </Button>
-                  )}
+                  </div>
 
                   <p className="text-sm text-muted-foreground">
-                    عرض {filteredCenters.length} مركز
+                    عرض {filteredCenters.length} مركز على صفحة {currentPage}
                     {!hasMore && <span className="mr-1">• تم عرض جميع النتائج</span>}
                   </p>
                 </div>

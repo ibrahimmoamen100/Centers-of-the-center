@@ -6,36 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { Teacher, Session } from "@/types/center";
 
-// Basic interfaces
-interface Teacher {
-  id: string;
-  name: string;
-  photo?: string;
-  image?: string;
-  subjects?: string[];
-}
-
-interface Session {
-  id: string;
-  subject: string;
-  teacher?: string;
-  teacherName?: string;
-  teacherId?: string;
-  time?: string;
-  sessionTime?: string;
-  duration?: number;
-  day?: number | string;
-  color?: string;
-  type?: 'recurring' | 'single';
-  startDateTime?: string;
-  endDateTime?: string;
-  grade?: string;
+// Extended Session interface for component-specific properties
+interface ExtendedSession extends Session {
   notes?: string;
 }
 
+
 interface TimetableCalendarProps {
-  sessions: Session[];
+  sessions: ExtendedSession[];
   teachers?: Teacher[];
   openingTime?: string;
   closingTime?: string;
@@ -83,7 +63,7 @@ const formatTime12Arabic = (hour: number, minute: number = 0): string => {
 };
 
 const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }: TimetableCalendarProps) => {
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedSession, setSelectedSession] = useState<ExtendedSession | null>(null);
 
   // Helper to get teacher image
   const getTeacherImage = (session: Session) => {

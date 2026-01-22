@@ -5,32 +5,15 @@ import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Teacher, Session } from "@/types/center";
 
-interface Teacher {
-    id: string;
-    name: string;
-    photo?: string;
-    image?: string;
-}
-
-interface Session {
-    id: string;
-    subject: string;
-    teacherName?: string;
-    teacherId?: string;
-    sessionTime?: string;
-    time?: string;
-    duration?: number;
-    day?: number | string;
-    type?: 'recurring' | 'single';
-    startDateTime?: string;
-    endDateTime?: string;
-    grade?: string;
+// Extended Session interface for component-specific properties
+interface ExtendedSession extends Session {
     notes?: string;
 }
 
 interface DailyTimetableProps {
-    sessions: Session[];
+    sessions: ExtendedSession[];
     teachers?: Teacher[];
 }
 
@@ -76,7 +59,7 @@ const getWeekStart = (date: Date): Date => {
 };
 
 const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
-    const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+    const [selectedSession, setSelectedSession] = useState<ExtendedSession | null>(null);
 
     // حساب نطاق التواريخ من الحصص
     const { minDate, maxDate, weeksWithSessions } = useMemo(() => {

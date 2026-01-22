@@ -11,15 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatWorkingHoursDisplay } from "@/lib/centerUtils";
-import { useCenterDetails } from "@/hooks/useCenterDetails";
+import { useCenterDetailsQuery } from "@/hooks/useCenterDetailsQuery";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { SEO } from "@/components/common/SEO";
 
 const CenterPage = () => {
   const { id: identifier } = useParams();
 
-  // استخدام الـ Hook المحسّن
-  const { center: centerData, teachers, sessions, loading, error } = useCenterDetails(identifier);
+  // ⚡ Use optimized React Query hook
+  const { center: centerData, teachers, sessions, loading, error } = useCenterDetailsQuery(identifier);
 
   // حالة اختيار الصف الدراسي
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);

@@ -1,36 +1,10 @@
 import { create } from 'zustand';
 import { Center } from './centersStore';
+import { Teacher, Session } from '@/types/center';
 
-export interface Teacher {
-    id: string;
-    name: string;
-    photo?: string;
-    image?: string;
-    subjects?: string[];
-    subject?: string;
-    grade?: string; // الصف الدراسي الذي يدرسه المدرس
-    experience?: string;
-    rating?: number;
-    bio?: string;
-}
+// Re-export for backward compatibility
+export type { Teacher, Session };
 
-export interface Session {
-    id: string;
-    subject: string;
-    teacher?: string;
-    teacherName?: string;
-    teacherId?: string;
-    teacherImage?: string; // صورة المدرس
-    time?: string;
-    sessionTime?: string;
-    duration?: number;
-    day?: number | string;
-    color?: string;
-    type?: 'recurring' | 'single';
-    startDateTime?: string;
-    endDateTime?: string;
-    grade?: string;
-}
 
 interface CenterDetailsState {
     center: Center | null;

@@ -16,7 +16,34 @@ import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 import { SuperAdminRoute, CenterAdminRoute } from "./components/ProtectedRoute";
 
-const queryClient = new QueryClient();
+// ⚡ Optimized QueryClient Configuration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Cache data for 5 minutes before considering it stale
+      staleTime: 5 * 60 * 1000, // 5 minutes
+
+      // Keep unused data in cache for 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+
+      // Don't refetch on window focus (reduces unnecessary reads)
+      refetchOnWindowFocus: false,
+
+      // Don't refetch on mount if data exists
+      refetchOnMount: false,
+
+      // Retry failed queries once only
+      retry: 1,
+
+      // Keep previous data while fetching new data (smooth UX)
+      placeholderData: (previousData) => previousData,
+    },
+    mutations: {
+      // Retry failed mutations once
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
