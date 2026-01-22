@@ -235,12 +235,12 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
             timeString = session.time;
         }
         if (!timeString || !timeString.includes(':')) {
-            return { start: 'غير محدد', duration: session.duration || 90 };
+            return { start: 'غير محدد', duration: session.duration || 120 };
         }
         const [hourStr, minStr] = timeString.split(':');
         const startHour = parseInt(hourStr);
         const startMin = parseInt(minStr);
-        const duration = session.duration || 90;
+        const duration = session.duration || 120;
         return { start: formatTime12Arabic(startHour, startMin), duration };
     };
 

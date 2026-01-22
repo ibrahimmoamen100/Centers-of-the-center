@@ -21,7 +21,7 @@ const FeaturedCentersSection = () => {
             </p>
           </div>
           <Button variant="outline" asChild className="group">
-            <Link to="/centers">
+            <Link to="/search">
               عرض الكل
               <ArrowLeft className="h-4 w-4 mr-2 group-hover:translate-x-[-4px] transition-transform" />
             </Link>

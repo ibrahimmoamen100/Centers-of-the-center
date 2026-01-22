@@ -35,6 +35,9 @@ const Footer = () => {
               <Link to="/search" className="text-background/70 hover:text-background transition-colors text-sm">
                 البحث عن مركز
               </Link>
+              <Link to="/pricing" className="text-background/70 hover:text-background transition-colors text-sm">
+                الأسعار والباقات
+              </Link>
               <Link to="/center/register" className="text-background/70 hover:text-background transition-colors text-sm">
                 سجل مركزك
               </Link>

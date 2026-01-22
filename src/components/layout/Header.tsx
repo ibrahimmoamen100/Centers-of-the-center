@@ -29,7 +29,9 @@ const Header = ({ isSticky = true }: HeaderProps) => {
           <Link to="/search" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
             البحث
           </Link>
-
+          <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors font-medium">
+            الأسعار
+          </Link>
         </nav>
 
         {/* Desktop Actions */}
@@ -75,11 +77,11 @@ const Header = ({ isSticky = true }: HeaderProps) => {
               البحث
             </Link>
             <Link
-              to="/centers"
+              to="/pricing"
               className="px-4 py-3 rounded-lg hover:bg-accent transition-colors font-medium"
               onClick={() => setIsMenuOpen(false)}
             >
-              المراكز
+              الأسعار
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border mt-2">
               <Button variant="outline" className="w-full" asChild>

@@ -18,7 +18,7 @@ export interface Center {
     teacherCount?: number;
     description?: string;
     createdAt?: Timestamp | Date;
-    displayOrder?: number; // Added for admin-controlled sorting
+    displayPriority?: number; // Added for admin-controlled sorting
     status?: string; // To ensure we only show active centers
     centerUsername?: string; // SEO-friendly URL identifier
 }
@@ -72,19 +72,39 @@ export function useCenters(filters?: {
                 }
 
                 const querySnapshot = await getDocs(centersQuery);
-                const centersData = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                } as Center));
 
-                // Client-side sorting: First by displayOrder (admin control), then by createdAt
+                // Fetch centers data and their teacher counts
+                const centersDataPromises = querySnapshot.docs.map(async (doc) => {
+                    const centerData = doc.data();
+
+                    // Fetch teacher count from subcollection
+                    let teacherCount = 0;
+                    try {
+                        const teachersSnapshot = await getDocs(
+                            collection(db, 'centers', doc.id, 'teachers')
+                        );
+                        teacherCount = teachersSnapshot.size;
+                    } catch (error) {
+                        console.error(`Error fetching teachers for center ${doc.id}:`, error);
+                    }
+
+                    return {
+                        id: doc.id,
+                        ...centerData,
+                        teacherCount
+                    } as Center;
+                });
+
+                const centersData = await Promise.all(centersDataPromises);
+
+                // Client-side sorting: First by displayPriority (admin control), then by createdAt
                 centersData.sort((a, b) => {
-                    // First priority: displayOrder (lower number = higher priority)
-                    const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
-                    const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
+                    // First priority: displayPriority (lower number = higher priority)
+                    const priorityA = a.displayPriority ?? Number.MAX_SAFE_INTEGER;
+                    const priorityB = b.displayPriority ?? Number.MAX_SAFE_INTEGER;
 
-                    if (orderA !== orderB) {
-                        return orderA - orderB;
+                    if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
                     }
 
                     // Second priority: createdAt (newer first)

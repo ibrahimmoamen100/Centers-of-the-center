@@ -7,7 +7,7 @@ interface SubscriptionInfoProps {
   subscription: {
     status: "active" | "expired" | "suspended";
     amount: number;
-    startDate: string;
+    startDate?: string;
     endDate: string;
   };
 }

@@ -253,9 +253,9 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
       return { top: '0px', height: '50px' };
     }
 
-    const pixelsPerHour = 60;
+    const pixelsPerHour = 64; // Match h-16 (4rem = 64px) from the grid
     const top = ((sessionStartHour - startHour) * 60 + startMinute) * (pixelsPerHour / 60);
-    const height = (session.duration || 90) * (pixelsPerHour / 60);
+    const height = (session.duration || 120) * (pixelsPerHour / 60);
 
     return {
       top: `${top}px`,
@@ -327,13 +327,13 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
     }
 
     if (!timeString || !timeString.includes(':')) {
-      return { start: 'غير محدد', end: 'غير محدد', duration: session.duration || 90 };
+      return { start: 'غير محدد', end: 'غير محدد', duration: session.duration || 120 };
     }
 
     const [hourStr, minStr] = timeString.split(':');
     const startHour = parseInt(hourStr);
     const startMin = parseInt(minStr);
-    const duration = session.duration || 90;
+    const duration = session.duration || 120;
 
     return {
       start: formatTime12Arabic(startHour, startMin),
