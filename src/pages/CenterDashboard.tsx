@@ -71,7 +71,7 @@ export default function CenterDashboard() {
   return (
     <SidebarProvider defaultOpen>
       <SEO title={`${centerData.name} - لوحة التحكم`} />
-      <div className="min-h-screen flex w-full bg-background" dir="rtl">
+      <div className="min-h-screen flex w-full bg-background text-right" dir="rtl">
         <CenterSidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}

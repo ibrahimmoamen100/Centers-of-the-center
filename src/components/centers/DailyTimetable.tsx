@@ -461,7 +461,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
                                                 </div>
 
                                                 {/* Content (Right) */}
-                                                <div className="flex-1 min-w-0 flex flex-col items-end text-right gap-1">
+                                                <div className="flex-1 min-w-0 flex flex-col gap-1">
                                                     <h3 className="font-extrabold text-base md:text-lg text-foreground truncate leading-tight w-full">
                                                         {session.subject}
                                                     </h3>

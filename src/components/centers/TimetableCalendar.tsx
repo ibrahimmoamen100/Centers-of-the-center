@@ -506,36 +506,27 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
                         style={{
                           top: style.top,
                           height: style.height,
-                          left: `${(dayIndex + 1) * 12.5 + 0.5}%`,
+                          insetInlineStart: `${(dayIndex + 1) * 12.5 + 0.5}%`,
                           width: totalOverlaps > 1
                             ? `${(12.5 / totalOverlaps) - 1}%`
                             : '11.5%',
                           transform: totalOverlaps > 1
-                            ? `translateX(${overlapIndex * 100}%)`
+                            ? `translateX(${overlapIndex * 100 * (document.dir === 'rtl' ? -1 : 1)}%)`
                             : 'none',
                           zIndex: overlapIndex + 10
                         }}
                         onClick={() => setSelectedSession(session)}
                       >
-                        {/* Top Section: Arrow & Subject (Swapped) */}
+                        {/* Top Section: Arrow & Subject */}
                         <div className="flex justify-between items-start gap-1">
-                          {/* More Options Arrow - Moved first (appears Right in LTR, Left in RTL - wait, in RTL flex: start is right. So first item is Right. Second item is Left. Correct?) 
-                              In RTL:
-                              Flex container. 
-                              First child -> Right side
-                              Last child -> Left side
-                              
-                              Current: Text (First) -> Right side. Arrow (Last) -> Left side.
-                              User wants: "Transfer speech to other side (Left) and arrow to speech side (Right)".
-                              So Arrow must be First Child. Text must be Last Child.
-                          */}
+                          {/* More Options Arrow */}
                           <div className="opacity-60 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 rounded-full p-0.5 flex-shrink-0">
                             <ChevronLeft className="h-3 w-3" />
                           </div>
 
-                          <div className="min-w-0 text-left">
-                            <div className="text-[10px] opacity-80 leading-none mb-1 font-medium text-right">{dayName}</div>
-                            <h4 className="text-xs font-bold leading-tight truncate text-right">
+                          <div className="min-w-0">
+                            <div className="text-[10px] opacity-80 leading-none mb-1 font-medium">{dayName}</div>
+                            <h4 className="text-xs font-bold leading-tight truncate">
                               {session.subject}
                             </h4>
                           </div>
@@ -544,7 +535,7 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
                         {/* Middle/Bottom: Teacher & Time */}
                         <div className="mt-auto pt-2 flex flex-col items-end">
                           {teacherName && (
-                            <div className="text-[10px] font-medium truncate mb-1 flex items-center gap-0.5 opacity-95 flex-row-reverse">
+                            <div className="text-[10px] font-medium truncate mb-1 flex items-center gap-0.5 opacity-95">
                               <span className="opacity-70 text-[9px]">/أ</span>
                               <span>{teacherName}</span>
                             </div>

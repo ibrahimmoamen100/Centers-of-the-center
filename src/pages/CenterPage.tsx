@@ -153,7 +153,7 @@ const CenterPage = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col " dir="rtl">
       <SEO
         title={centerData.centerUsername}
         description={centerData.description || `مركز ${centerData.centerUsername} التعليمي في ${centerData.governorate} - ${centerData.area}. اعرف جدول الحصص والمدرسين.`}
@@ -207,7 +207,7 @@ const CenterPage = () => {
                   <div className="mt-2 sm:w-fit">
                     <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 shadow-sm hover:bg-black/30 transition-colors">
                       <Clock className="h-3.5 w-3.5 text-primary-foreground/90" />
-                      <span className="text-sm font-medium text-primary-foreground dir-rtl">
+                      <span className="text-sm font-medium text-primary-foreground ">
                         {workingHoursDisplay}
                       </span>
                     </div>
@@ -321,7 +321,7 @@ const CenterPage = () => {
               </div>
             </div>
           ) : (
-            <Tabs defaultValue="timetable" className="space-y-8">
+            <Tabs defaultValue="timetable" className="space-y-8" dir="rtl">
               <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
                 <TabsTrigger value="timetable" className="data-[state=active]:bg-card px-6 py-3">
                   جدول الحصص

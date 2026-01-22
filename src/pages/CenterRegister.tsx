@@ -326,8 +326,7 @@ export default function CenterRegister() {
                         placeholder="https://example.com/logo.png"
                         value={formData.logoUrl}
                         onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                        className="text-left ltr"
-                        dir="ltr"
+                        className=""
                       />
                       <p className="text-xs text-muted-foreground">أدخل رابط مباشر للصورة من آي كلاود أو جوجل درايف أو أي خدمة استضافة.</p>
                     </div>
@@ -360,12 +359,11 @@ export default function CenterRegister() {
                         placeholder="future-center"
                         value={formData.centerUsername}
                         onChange={handleUsernameChange}
-                        className={`text-left ltr ${usernameStatus === 'taken' ? 'border-destructive' : usernameStatus === 'available' ? 'border-green-500' : ''}`}
-                        dir="ltr"
+                        className={`  ${usernameStatus === 'taken' ? 'border-destructive' : usernameStatus === 'available' ? 'border-green-500' : ''}`}
                         required
                         pattern="^[a-z0-9-]+$"
                       />
-                      <p className="text-[10px] text-muted-foreground mt-1 text-left ltr">
+                      <p className="text-[10px] text-muted-foreground mt-1 ">
                         /center/{formData.centerUsername || 'username'}
                       </p>
                     </div>
