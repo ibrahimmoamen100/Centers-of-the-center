@@ -150,6 +150,7 @@ export function useCenterDetailsQuery(identifier?: string) {
                     startDateTime: data.startDateTime,
                     endDateTime: data.endDateTime,
                     grade: data.grade,
+                    notes: data.notes,
                 };
             });
         } catch (error) {

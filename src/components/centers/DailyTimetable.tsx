@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronRight, ChevronLeft, Calendar as CalendarIcon, Clock, User, X, CalendarDays, Repeat, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
@@ -7,13 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Teacher, Session } from "@/types/center";
 
-// Extended Session interface for component-specific properties
-interface ExtendedSession extends Session {
-    notes?: string;
-}
-
 interface DailyTimetableProps {
-    sessions: ExtendedSession[];
+    sessions: Session[];
     teachers?: Teacher[];
 }
 
@@ -59,7 +54,7 @@ const getWeekStart = (date: Date): Date => {
 };
 
 const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
-    const [selectedSession, setSelectedSession] = useState<ExtendedSession | null>(null);
+    const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
     // حساب نطاق التواريخ من الحصص
     const { minDate, maxDate, weeksWithSessions } = useMemo(() => {
@@ -129,6 +124,22 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
     }, [weekStart]);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+    // تحديد اليوم التلقائي عند تغيير الأسبوع
+    useEffect(() => {
+        const today = new Date();
+        const todayKey = today.toDateString();
+
+        // البحث عن اليوم الحالي في أيام الأسبوع المعروضة
+        const todayInWeek = weekDates.find(date => date.toDateString() === todayKey);
+
+        if (todayInWeek) {
+            setSelectedDate(todayInWeek);
+        } else if (weekDates.length > 0) {
+            // إذا لم يكن اليوم الحالي موجوداً، نختار أول يوم في الأسبوع
+            setSelectedDate(weekDates[0]);
+        }
+    }, [weekDates]);
 
     // استخراج الحصص لكل يوم في الأسبوع
     const sessionsByDate = useMemo(() => {
@@ -394,7 +405,9 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
 
                                 {/* Today Badge */}
                                 {isToday && (
-                                    <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                    <div className="absolute top-1 right-1 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-md font-bold shadow-sm z-10">
+                                        اليوم
+                                    </div>
                                 )}
                             </button>
                         );

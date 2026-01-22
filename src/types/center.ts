@@ -29,4 +29,5 @@ export interface Session {
     startDateTime?: string;
     endDateTime?: string;
     grade?: string;
+    notes?: string;
 }

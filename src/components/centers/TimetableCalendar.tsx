@@ -8,14 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Teacher, Session } from "@/types/center";
 
-// Extended Session interface for component-specific properties
-interface ExtendedSession extends Session {
-  notes?: string;
-}
-
-
 interface TimetableCalendarProps {
-  sessions: ExtendedSession[];
+  sessions: Session[];
   teachers?: Teacher[];
   openingTime?: string;
   closingTime?: string;
@@ -63,7 +57,7 @@ const formatTime12Arabic = (hour: number, minute: number = 0): string => {
 };
 
 const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }: TimetableCalendarProps) => {
-  const [selectedSession, setSelectedSession] = useState<ExtendedSession | null>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
   // Helper to get teacher image
   const getTeacherImage = (session: Session) => {
@@ -457,6 +451,13 @@ const TimetableCalendar = ({ sessions, teachers = [], openingTime, closingTime }
                     )}>
                       {date.getDate()}
                     </span>
+
+                    {/* Today Badge */}
+                    {isToday && (
+                      <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 py-0 rounded-sm font-bold ">
+                        اليوم
+                      </div>
+                    )}
 
                     {day}
                   </div>

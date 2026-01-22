@@ -253,7 +253,7 @@ const CenterPage = () => {
 
         {/* Grade Selection Section (Restored Sticky Bar) */}
         {centerData.grades && centerData.grades.length > 0 && (
-          <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+          <div className="bg-card border-b border-border sticky top-0 z-40 shadow-sm">
             <div className="container py-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex items-center gap-2">
