@@ -37,7 +37,7 @@ const gradeColors: Record<string, string> = {
 
 const formatTime12Arabic = (hour: number, minute: number = 0): string => {
     const minuteStr = minute > 0 ? `:${minute.toString().padStart(2, '0')}` : '';
-    if (hour === 0) return `12${minuteStr} منتصف الليل`;
+    if (hour === 0) return `12${minuteStr}  مساءً`;
     if (hour < 12) return `${hour}${minuteStr} صباحًا`;
     if (hour === 12) return `12${minuteStr} ظهرًا`;
     if (hour < 17) return `${hour - 12}${minuteStr} عصرًا`;
@@ -360,7 +360,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
                             >
                                 {/* Day Name */}
                                 <div className={cn(
-                                    "text-xs font-medium text-muted-foreground mb-1",
+                                    "text-[10px] md:text-xs font-medium text-muted-foreground mb-1",
                                     isToday && "text-primary font-bold"
                                 )}>
                                     {days[idx]}
@@ -368,7 +368,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
 
                                 {/* Date Number */}
                                 <div className={cn(
-                                    "text-2xl font-bold mb-1",
+                                    "text-lg md:text-xl font-bold mb-1",
                                     isToday && "text-primary",
                                     isSelected && "text-primary"
                                 )}>
@@ -377,7 +377,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
 
                                 {/* Month (if different) */}
                                 {date.getMonth() !== weekStart.getMonth() && (
-                                    <div className="text-[10px] text-muted-foreground">
+                                    <div className="text-[8px] md:text-[10px] text-muted-foreground">
                                         {monthNames[date.getMonth()].slice(0, 3)}
                                     </div>
                                 )}
@@ -418,7 +418,7 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
                 {selectedDate && (
                     <div className="p-4">
                         <div className="mb-4 flex items-center justify-between">
-                            <h4 className="font-bold text-foreground flex items-center gap-2">
+                            <h4 className="font-bold text-sm md:text-base text-foreground flex items-center gap-2">
                                 <CalendarIcon className="h-4 w-4 text-primary" />
                                 حصص {days[selectedDate.getDay() === 6 ? 0 : (selectedDate.getDay() + 1) % 7]}
                                 {" "}{selectedDate.getDate()} {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
@@ -450,23 +450,19 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
 
                                             <div className="p-4 pr-6 flex items-center justify-between gap-4">
                                                 {/* Left Side (Time & Arrow) */}
-                                                <div className="flex flex-col items-center gap-2 min-w-[85px]">
-                                                    {/* Time Box */}
-                                                    <div className="bg-muted/40 rounded-lg px-2 py-1.5 border border-border/50 shadow-sm w-full flex justify-center">
-                                                        <div className="text-lg font-bold text-primary font-mono dir-ltr tracking-tight leading-none">
-                                                            {getSessionTime(session)}
-                                                        </div>
-                                                    </div>
+                                                <div className="flex flex-row items-center gap-2 min-w-[85px]">
+
 
                                                     {/* Arrow */}
                                                     <div className="w-8 h-8 rounded-full bg-muted/30 flex items-center justify-center text-muted-foreground/80 group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
                                                         <ChevronLeft className="w-5 h-5" />
                                                     </div>
+                                                    <span className="text-sm text-muted-foreground">تفاصيل</span>
                                                 </div>
 
                                                 {/* Content (Right) */}
                                                 <div className="flex-1 min-w-0 flex flex-col items-end text-right gap-1">
-                                                    <h3 className="font-extrabold text-xl text-foreground truncate leading-tight w-full">
+                                                    <h3 className="font-extrabold text-base md:text-lg text-foreground truncate leading-tight w-full">
                                                         {session.subject}
                                                     </h3>
                                                     {session.teacherName && (
@@ -474,6 +470,10 @@ const DailyTimetable = ({ sessions, teachers = [] }: DailyTimetableProps) => {
                                                             <span>أ/ {session.teacherName}</span>
                                                         </div>
                                                     )}
+                                                    {/* Time Box */}
+                                                    <div className="text-lg font-bold text-right w-full pt-2  text-primary font-mono dir-ltr tracking-tight leading-none">
+                                                        الوقت  : {getSessionTime(session)}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
